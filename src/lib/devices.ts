@@ -3,7 +3,8 @@
 // 데이터 소스: Apple/Samsung 공식 사양표(2021~2026).
 // 인터페이스는 src/types.ts (`Device`, `CameraLens`) 를 그대로 따른다.
 
-import type { Device } from '../types'
+import type { Device, FocalLength35mm, FocalZoom } from '../types'
+import { FOCAL_ZOOM_MAX } from '../tokens'
 
 export const DEVICE_DB: Device[] = [
   // ---------- Apple iPhone ----------
@@ -255,6 +256,26 @@ export const DEVICE_DB: Device[] = [
  */
 export function getDeviceById(id: string): Device | null {
   return DEVICE_DB.find((d) => d.id === id) ?? null
+}
+
+/** Main(1x) 렌즈의 35mm 환산 mm. 없을 때 24 fallback. */
+export function getMainFocalMm(device: Device | null): FocalLength35mm {
+  return device?.lenses.find((l) => l.zoomFactor === 1.0)?.focalLength35mm ?? 24
+}
+
+/**
+ * 사용자가 선택한 mm 값을 카메라 트랙에 보낼 zoomFactor 로 환산.
+ *  - main lens(1x) 기준 비례. ultra-wide 는 0.5x 이하까지 허용 (하한 0.5).
+ *  - 상한은 FOCAL_ZOOM_MAX (5.0).
+ */
+export function focalLengthToZoom(
+  focalLength35mm: FocalLength35mm,
+  device: Device | null,
+): FocalZoom {
+  const main = getMainFocalMm(device)
+  if (!Number.isFinite(focalLength35mm) || focalLength35mm <= 0) return 1.0
+  const ratio = focalLength35mm / main
+  return Math.max(0.5, Math.min(FOCAL_ZOOM_MAX, ratio))
 }
 
 /**

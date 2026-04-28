@@ -2,7 +2,7 @@
 // Fixed Top / Variable Center / Fixed Bottom 3-구역 레이아웃을 구성하고
 // startCamera (lib/camera.ts) 로 Worker 파이프라인을 연결한다.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CameraPreview, type CameraPreviewHandle } from './components/CameraPreview/CameraPreview'
 import { ZoneBar } from './components/ZoneSystem/ZoneBar'
 import { SpotMeter } from './components/ZoneSystem/SpotMeter'
@@ -16,6 +16,12 @@ import { PresetPanel } from './components/Presets/PresetPanel'
 import { GitHubLink } from './components/GitHubLink/GitHubLink'
 import { AppStateProvider, useAppState } from './state/appState'
 import { startCamera, type CameraSession } from './lib/camera'
+import { focalLengthToZoom } from './lib/devices'
+import {
+  applyHighlight,
+  generateCombos,
+  sortByPriority,
+} from './lib/exposure-engine'
 import type { EVResult, ZoneIndex } from './types'
 
 import styles from './App.module.css'
@@ -27,6 +33,12 @@ function AppShell() {
   const [pairs, setPairs] = useState<EVResult['pairs']>([])
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [, setLastTick] = useState(0) // 60fps re-render trigger (값 자체는 미사용)
+
+  // 다이얼은 mm 단위지만 카메라 트랙은 zoom 배율을 받는다 — 어댑터.
+  const focalZoom = useMemo(
+    () => focalLengthToZoom(state.focalLength35mm, state.device),
+    [state.focalLength35mm, state.device],
+  )
 
   // ---- 카메라 + Worker 부팅 (마운트 1회) ----
   useEffect(() => {
@@ -40,7 +52,7 @@ function AppShell() {
           video,
           iso: state.iso,
           ec: state.ec,
-          focalZoom: state.focalZoom,
+          focalZoom,
           priorityF: state.priorityF,
           prioritySS: state.prioritySS,
           onMessage: (msg) => {
@@ -112,8 +124,8 @@ function AppShell() {
   }, [state.ec])
 
   useEffect(() => {
-    sessionRef.current?.send({ type: 'set-focal', focalZoom: state.focalZoom })
-  }, [state.focalZoom])
+    sessionRef.current?.send({ type: 'set-focal', focalZoom })
+  }, [focalZoom])
 
   useEffect(() => {
     sessionRef.current?.send({
@@ -133,10 +145,35 @@ function AppShell() {
   )
 
   // ---- MEASURE 버튼 ----
+  // Zone System 활성 + selectedZone + selectedSpot 이 모두 있으면:
+  //   spot 의 EV 를 사용자가 선택한 Zone 에 떨어뜨리도록 노출 보정.
+  //   Zone V 가 mid-gray 기준이므로 (selectedZone - 5) stop 만큼 EV 를 빼면
+  //   결과 노출이 그 Zone 에 spot 을 두는 값이 된다.
   const handleMeasure = useCallback(() => {
-    if (state.liveResult) {
-      state.pushMeasure(state.liveResult)
+    if (!state.liveResult) return
+
+    const spot = state.spotMarkers.find((m) => m.id === state.selectedSpotId)
+    if (
+      state.zoneSysEnabled &&
+      state.selectedZone !== null &&
+      spot
+    ) {
+      const adjEV = spot.ev - (state.selectedZone - 5)
+      const newPairs = sortByPriority(
+        applyHighlight(generateCombos(adjEV), state.priorityF, state.prioritySS),
+      )
+      const adjusted: EVResult = {
+        ...state.liveResult,
+        ev: adjEV,
+        pairs: newPairs,
+        measuredAt: Date.now(),
+      }
+      setPairs(newPairs)
+      state.pushMeasure(adjusted)
+      return
     }
+
+    state.pushMeasure(state.liveResult)
   }, [state])
 
   const lastMeasuredAt =
@@ -151,7 +188,7 @@ function AppShell() {
         <CameraPreview
           ref={previewRef}
           ev={state.lastEV}
-          focalZoom={state.focalZoom}
+          focalZoom={focalZoom}
           zoneSysEnabled={state.zoneSysEnabled}
           errorMessage={cameraError}
           onTap={handleTap}
@@ -163,10 +200,24 @@ function AppShell() {
               if (!b) state.clearSpots()
             }}
           />
-          {state.zoneSysEnabled && <ZoneBar currentZone={state.currentZone} />}
+          {state.zoneSysEnabled && (
+            <ZoneBar
+              currentZone={state.currentZone}
+              selectedZone={state.selectedZone}
+              onSelectZone={state.setSelectedZone}
+            />
+          )}
           {state.zoneSysEnabled &&
             state.spotMarkers.map((m) => (
-              <SpotMeter key={m.id} x={m.x} y={m.y} zone={m.zone} ev={m.ev} />
+              <SpotMeter
+                key={m.id}
+                x={m.x}
+                y={m.y}
+                zone={m.zone}
+                ev={m.ev}
+                selected={m.id === state.selectedSpotId}
+                onSelect={() => state.setSelectedSpot(m.id)}
+              />
             ))}
         </CameraPreview>
       </header>
@@ -190,8 +241,8 @@ function AppShell() {
         />
         <div className={styles.dialStack}>
           <FocalDial
-            value={state.focalZoom}
-            onChange={state.setFocalZoom}
+            value={state.focalLength35mm}
+            onChange={state.setFocalLength35mm}
             device={state.device}
           />
           <div className={styles.dialDivider} />

@@ -207,6 +207,23 @@ export function applyHighlight(
   }))
 }
 
+function priorityScore(p: ComboPairHighlighted): number {
+  return (p.matchF ? 1 : 0) + (p.matchSS ? 1 : 0)
+}
+
+/**
+ * 우선순위 매칭 강도(2: 양쪽 / 1: 한쪽 / 0: 없음) 기준 내림차순 정렬.
+ * 동순위 내에서는 aperture 오름차순(작은 f-number 먼저).
+ *   Array.prototype.sort 는 V8/JSC 에서 stable — 입력 순서가 보존된다.
+ */
+export function sortByPriority(
+  pairs: ComboPairHighlighted[],
+): ComboPairHighlighted[] {
+  return [...pairs].sort(
+    (a, b) => priorityScore(b) - priorityScore(a) || a.aperture - b.aperture,
+  )
+}
+
 // ---------------------------------------------------------------------------
 // 7. Average luminance — Worker가 직접 호출
 // ---------------------------------------------------------------------------

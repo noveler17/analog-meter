@@ -16,7 +16,7 @@ export function ZSysToggle({ enabled, onChange }: ZSysToggleProps) {
       aria-pressed={enabled}
       aria-label="Toggle Zone System"
     >
-      Z-SYS
+      Zone System
     </button>
   )
 }

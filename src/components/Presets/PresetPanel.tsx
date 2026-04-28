@@ -104,7 +104,7 @@ export function PresetPanel({
                     <span className={styles.slotName}>{p.name}</span>
                     <span className={styles.slotMeta}>
                       ISO {p.iso} · EC {p.ec >= 0 ? '+' : ''}
-                      {p.ec.toFixed(1)} · {p.focalZoom.toFixed(1)}x
+                      {p.ec.toFixed(1)} · {Math.round(p.focalLength35mm)}mm
                     </span>
                   </button>
                   <button

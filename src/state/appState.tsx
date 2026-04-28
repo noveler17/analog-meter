@@ -16,7 +16,7 @@ import type {
   EV,
   EVResult,
   FRange,
-  FocalZoom,
+  FocalLength35mm,
   ISO,
   Preset,
   SSRange,
@@ -24,6 +24,11 @@ import type {
   ZoneIndex,
 } from '../types'
 import { detectDevice, getDeviceById } from '../lib/devices'
+
+// Main(1x) 렌즈의 35mm 환산 mm. fallback 24 (요즘 폰 기준).
+function mainFocal(device: Device | null): FocalLength35mm {
+  return device?.lenses.find((l) => l.zoomFactor === 1.0)?.focalLength35mm ?? 24
+}
 
 // ---------------------------------------------------------------------------
 // 1. localStorage helpers (Preset 저장)
@@ -67,11 +72,15 @@ interface SpotMarker {
 export interface AppStateValue {
   iso: ISO
   ec: EC
-  focalZoom: FocalZoom
+  focalLength35mm: FocalLength35mm
   device: Device | null
   priorityF: FRange | null
   prioritySS: SSRange | null
   zoneSysEnabled: boolean
+  /** Zone System 모드에서 사용자가 선택한 목표 Zone. */
+  selectedZone: ZoneIndex | null
+  /** Zone System 모드에서 보정 기준 spot의 id. */
+  selectedSpotId: string | null
   lastEV: EV | null
   currentZone: ZoneIndex | null
   measureLog: EVResult[]
@@ -84,16 +93,18 @@ export interface AppStateValue {
 type Action =
   | { type: 'set-iso'; iso: ISO }
   | { type: 'set-ec'; ec: EC }
-  | { type: 'set-focal'; focalZoom: FocalZoom }
+  | { type: 'set-focal-length'; focalLength35mm: FocalLength35mm }
   | { type: 'set-device'; device: Device | null }
   | { type: 'set-priority'; priorityF: FRange | null; prioritySS: SSRange | null }
   | { type: 'set-zone-sys'; enabled: boolean }
+  | { type: 'select-zone'; zone: ZoneIndex | null }
+  | { type: 'select-spot'; id: string | null }
   | { type: 'apply-live'; result: EVResult; zone: ZoneIndex }
   | { type: 'push-measure'; result: EVResult }
   | { type: 'add-spot'; marker: SpotMarker }
   | { type: 'clear-spots' }
   | { type: 'set-presets'; presets: Preset[] }
-  | { type: 'apply-preset'; preset: Preset }
+  | { type: 'apply-preset'; preset: Preset; mainMm: FocalLength35mm }
 
 function reducer(state: AppStateValue, action: Action): AppStateValue {
   switch (action.type) {
@@ -101,10 +112,14 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
       return { ...state, iso: action.iso }
     case 'set-ec':
       return { ...state, ec: action.ec }
-    case 'set-focal':
-      return { ...state, focalZoom: action.focalZoom }
-    case 'set-device':
-      return { ...state, device: action.device }
+    case 'set-focal-length':
+      return { ...state, focalLength35mm: action.focalLength35mm }
+    case 'set-device': {
+      // 디바이스 변경 시 main lens mm로 focal length 정렬(이전이 같은 mm가 아닐 때만).
+      const nextMain = mainFocal(action.device)
+      const focal = state.focalLength35mm > 0 ? state.focalLength35mm : nextMain
+      return { ...state, device: action.device, focalLength35mm: focal }
+    }
     case 'set-priority':
       return {
         ...state,
@@ -112,7 +127,20 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
         prioritySS: action.prioritySS,
       }
     case 'set-zone-sys':
-      return { ...state, zoneSysEnabled: action.enabled }
+      // 토글 OFF 시 selection 도 함께 해제.
+      return action.enabled
+        ? { ...state, zoneSysEnabled: true }
+        : {
+            ...state,
+            zoneSysEnabled: false,
+            selectedZone: null,
+            selectedSpotId: null,
+            spotMarkers: [],
+          }
+    case 'select-zone':
+      return { ...state, selectedZone: action.zone }
+    case 'select-spot':
+      return { ...state, selectedSpotId: action.id }
     case 'apply-live':
       return {
         ...state,
@@ -125,24 +153,37 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
         ...state,
         measureLog: [...state.measureLog, action.result].slice(-50),
       }
-    case 'add-spot':
+    case 'add-spot': {
+      const next = [...state.spotMarkers, action.marker].slice(-3)
+      // 새 spot은 자동 선택. 사용자가 명시적으로 다른 spot을 선택했다면 유지하지 않고 최신으로 갱신.
       return {
         ...state,
-        spotMarkers: [...state.spotMarkers, action.marker].slice(-3),
+        spotMarkers: next,
+        selectedSpotId: action.marker.id,
       }
+    }
     case 'clear-spots':
-      return { ...state, spotMarkers: [] }
+      return { ...state, spotMarkers: [], selectedSpotId: null }
     case 'set-presets':
       return { ...state, presets: action.presets }
-    case 'apply-preset':
+    case 'apply-preset': {
+      const p = action.preset
+      // legacy focalZoom 만 있는 preset은 mainMm을 곱해서 mm로 환원.
+      const focal =
+        typeof p.focalLength35mm === 'number' && p.focalLength35mm > 0
+          ? p.focalLength35mm
+          : typeof p.focalZoom === 'number'
+            ? p.focalZoom * action.mainMm
+            : action.mainMm
       return {
         ...state,
-        iso: action.preset.iso,
-        ec: action.preset.ec,
-        focalZoom: action.preset.focalZoom,
-        priorityF: action.preset.priorityF,
-        prioritySS: action.preset.prioritySS,
+        iso: p.iso,
+        ec: p.ec,
+        focalLength35mm: focal,
+        priorityF: p.priorityF,
+        prioritySS: p.prioritySS,
       }
+    }
     default:
       return state
   }
@@ -151,11 +192,13 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
 const initialState: AppStateValue = {
   iso: 100,
   ec: 0,
-  focalZoom: 1.0,
+  focalLength35mm: 24,
   device: null,
   priorityF: null,
   prioritySS: null,
   zoneSysEnabled: false,
+  selectedZone: null,
+  selectedSpotId: null,
   lastEV: null,
   currentZone: null,
   measureLog: [],
@@ -171,10 +214,12 @@ const initialState: AppStateValue = {
 export interface AppStateAPI extends AppStateValue {
   setISO: (v: ISO) => void
   setEC: (v: EC) => void
-  setFocalZoom: (v: FocalZoom) => void
+  setFocalLength35mm: (v: FocalLength35mm) => void
   setDevice: (d: Device | null) => void
   setPriority: (f: FRange | null, ss: SSRange | null) => void
   setZoneSysEnabled: (b: boolean) => void
+  setSelectedZone: (z: ZoneIndex | null) => void
+  setSelectedSpot: (id: string | null) => void
   applyLive: (result: EVResult, zone: ZoneIndex) => void
   pushMeasure: (result: EVResult) => void
   addSpot: (marker: SpotMarker) => void
@@ -205,8 +250,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // 3) 액션 디스패처 — 안정 참조.
   const setISO = useCallback((v: ISO) => dispatch({ type: 'set-iso', iso: v }), [])
   const setEC = useCallback((v: EC) => dispatch({ type: 'set-ec', ec: v }), [])
-  const setFocalZoom = useCallback(
-    (v: FocalZoom) => dispatch({ type: 'set-focal', focalZoom: v }),
+  const setFocalLength35mm = useCallback(
+    (v: FocalLength35mm) => dispatch({ type: 'set-focal-length', focalLength35mm: v }),
     [],
   )
   const setDevice = useCallback(
@@ -220,6 +265,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   )
   const setZoneSysEnabled = useCallback(
     (b: boolean) => dispatch({ type: 'set-zone-sys', enabled: b }),
+    [],
+  )
+  const setSelectedZone = useCallback(
+    (z: ZoneIndex | null) => dispatch({ type: 'select-zone', zone: z }),
+    [],
+  )
+  const setSelectedSpot = useCallback(
+    (id: string | null) => dispatch({ type: 'select-spot', id }),
     [],
   )
   const applyLive = useCallback(
@@ -244,7 +297,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         name: name || `Preset ${state.presets.length + 1}`,
         iso: state.iso,
         ec: state.ec,
-        focalZoom: state.focalZoom,
+        focalLength35mm: state.focalLength35mm,
         priorityF: state.priorityF,
         prioritySS: state.prioritySS,
         savedAt: Date.now(),
@@ -255,7 +308,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [
       state.iso,
       state.ec,
-      state.focalZoom,
+      state.focalLength35mm,
       state.priorityF,
       state.prioritySS,
       state.presets,
@@ -265,9 +318,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const loadPreset = useCallback(
     (id: string) => {
       const preset = state.presets.find((p) => p.id === id)
-      if (preset) dispatch({ type: 'apply-preset', preset })
+      if (preset) {
+        dispatch({
+          type: 'apply-preset',
+          preset,
+          mainMm: mainFocal(state.device),
+        })
+      }
     },
-    [state.presets],
+    [state.presets, state.device],
   )
 
   const deletePreset = useCallback(
@@ -283,10 +342,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       ...state,
       setISO,
       setEC,
-      setFocalZoom,
+      setFocalLength35mm,
       setDevice,
       setPriority,
       setZoneSysEnabled,
+      setSelectedZone,
+      setSelectedSpot,
       applyLive,
       pushMeasure,
       addSpot,
@@ -299,10 +360,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       state,
       setISO,
       setEC,
-      setFocalZoom,
+      setFocalLength35mm,
       setDevice,
       setPriority,
       setZoneSysEnabled,
+      setSelectedZone,
+      setSelectedSpot,
       applyLive,
       pushMeasure,
       addSpot,

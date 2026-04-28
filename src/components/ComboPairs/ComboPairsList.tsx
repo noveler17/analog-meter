@@ -2,8 +2,9 @@
 // Worker 가 이미 priority 하이라이트를 적용한 ComboPairHighlighted[] 를 그대로 렌더링한다.
 // PRD 2.2: matchF XOR matchSS → 글씨 초록 / matchF && matchSS → 테두리 초록.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ComboPairHighlighted, FRange, SSRange } from '../../types'
+import { sortByPriority } from '../../lib/exposure-engine'
 import { PrioritySettingsModal } from './PrioritySettingsModal'
 import styles from './ComboPairs.module.css'
 
@@ -27,12 +28,15 @@ export function ComboPairsList({
   onChangePriority,
 }: ComboPairsListProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Worker가 이미 정렬해서 보내지만, 메인 스레드에서 보정 측정값을 직접
+  // 갱신하는 경로(handleMeasure의 Zone 보정)도 정렬을 보장한다.
+  const sortedPairs = useMemo(() => sortByPriority(pairs), [pairs])
 
   return (
     <section className={styles.comboSection} aria-label="Aperture and shutter combinations">
       <header className={styles.header}>
         <span className={styles.headerTitle}>COMBINATIONS</span>
-        <span className={styles.headerCount}>{pairs.length}</span>
+        <span className={styles.headerCount}>{sortedPairs.length}</span>
         <button
           type="button"
           className={styles.settingsBtn}
@@ -43,11 +47,11 @@ export function ComboPairsList({
         </button>
       </header>
 
-      {pairs.length === 0 ? (
+      {sortedPairs.length === 0 ? (
         <div className={styles.emptyState}>—</div>
       ) : (
         <ul className={styles.pairList}>
-          {pairs.map((p, idx) => (
+          {sortedPairs.map((p, idx) => (
             <li
               key={`${p.aperture}-${p.shutterSpeed}-${idx}`}
               className={`${styles.pairRow} ${pairStyleClass(p)}`}

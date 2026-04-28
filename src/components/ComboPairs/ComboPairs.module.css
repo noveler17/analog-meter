@@ -77,25 +77,31 @@
   padding: 0 16px;
   margin: 0 8px;
   font-family: var(--font-mono);
-  font-size: var(--size-md);
+  font-size: var(--size-lg);
   color: var(--gray-300);
   border: 2px solid transparent;
   border-radius: 6px;
-  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  transition: color 0.12s, border-color 0.12s, background 0.12s,
+    font-size 0.12s, font-weight 0.12s;
 }
 
-/* PRD 2.2: F XOR SS → 글씨 초록 */
+/* F XOR SS → 글씨 초록 + 약한 강조. */
 .pairOne {
   color: var(--green);
+  font-weight: 600;
   text-shadow: 0 0 4px var(--green-glow);
 }
 
-/* PRD 2.2: F AND SS → 테두리 초록 */
+/* F AND SS → 우선순위 최상단. 가시성 강화: 굵은 테두리 + 큰 글씨 + 진한 배경 + 강한 glow. */
 .pairBoth {
-  color: var(--white);
+  color: var(--green);
+  font-weight: 700;
+  font-size: var(--size-xl);
+  border-width: 3px;
   border-color: var(--green);
-  background: rgba(0, 255, 65, 0.06);
-  box-shadow: 0 0 6px var(--green-glow);
+  background: rgba(0, 255, 65, 0.12);
+  box-shadow: 0 0 12px var(--green-glow);
+  letter-spacing: 0.06em;
 }
 
 .pairAperture,

@@ -22,8 +22,11 @@ export type ShutterSpeed = number
 /** EV(Exposure Value). ISO/EC 보정이 반영된 절대 노출 값. */
 export type EV = number
 
-/** 35mm 환산 줌 배율. 1.0 ~ 5.0. */
+/** 35mm 환산 줌 배율. 1.0 ~ 5.0. (Worker/카메라 트랙 내부용 어댑터 단위) */
 export type FocalZoom = number
+
+/** 35mm 환산 초점 거리(mm). 다이얼/사용자 노출 단위. */
+export type FocalLength35mm = number
 
 // ---------------------------------------------------------------------------
 // 2. Zone System
@@ -210,7 +213,10 @@ export interface Preset {
   name: string
   iso: ISO
   ec: EC
-  focalZoom: FocalZoom
+  /** 35mm 환산 초점 거리. v2부터 정식 필드. */
+  focalLength35mm: FocalLength35mm
+  /** Legacy: 구버전 저장본 호환용. 새 저장에는 채우지 않는다. */
+  focalZoom?: FocalZoom
   priorityF: FRange | null
   prioritySS: SSRange | null
   /** Date.now() 기준 저장 시각. */
@@ -224,11 +230,15 @@ export interface Preset {
 export interface AppState {
   iso: ISO
   ec: EC
-  focalZoom: FocalZoom
+  focalLength35mm: FocalLength35mm
   device: Device | null
   priorityF: FRange | null
   prioritySS: SSRange | null
   zoneSysEnabled: boolean
+  /** Zone System 모드에서 사용자가 목표로 지정한 Zone. */
+  selectedZone: ZoneIndex | null
+  /** Zone System 모드에서 보정 기준이 되는 spot 마커 id. */
+  selectedSpotId: string | null
   /** 마지막 EV 측정값(없으면 null). */
   lastEV: EV | null
   /** MEASURE 버튼으로 확정 저장한 측정 로그. */

@@ -27,7 +27,7 @@ export function ECDial({ value, onChange }: ECDialProps) {
       value={value}
       onChange={onChange}
       formatLabel={formatEC}
-      caption="EC"
+      caption="Exposure Compensation"
       ariaLabel="Exposure compensation"
     />
   )

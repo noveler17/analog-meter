@@ -15,6 +15,7 @@ import {
   generateCombos,
   luminanceToEV,
   luminanceToEV100,
+  sortByPriority,
   spotLuminance,
 } from '../lib/exposure-engine'
 import { PERF } from '../tokens'
@@ -158,7 +159,9 @@ function handleFrame(bitmap: ImageBitmap): void {
   const ev: EV = luminanceToEV(luminance, iso, ec)
   const zone = classifyZone(luminance)
 
-  const pairs = applyHighlight(generateCombos(ev), priorityF, prioritySS)
+  const pairs = sortByPriority(
+    applyHighlight(generateCombos(ev), priorityF, prioritySS),
+  )
 
   const result: WorkerResult = {
     type: 'ev-update',

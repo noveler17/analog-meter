@@ -1,33 +1,31 @@
-// AnalogMeter — Focal Zoom Dial. 1.0x ~ 5.0x.
-// device.lenses 의 zoomFactor 를 우선 표시하되, 사이값(1.5x 등)도 1/3 stop 시리즈로 보강.
+// AnalogMeter — Focal Length Dial. 35mm 환산 초점 거리(mm).
+// 디바이스의 모든 lens.focalLength35mm 와 표준 시리즈를 병합한 stops.
+// 다이얼 값/포맷은 mm. 카메라 zoomFactor 변환은 App.tsx 의 어댑터에서 수행.
 
 import { useMemo } from 'react'
-import type { Device, FocalZoom } from '../../types'
+import type { Device, FocalLength35mm } from '../../types'
 import { ScrollDial } from './ScrollDial'
 
 interface FocalDialProps {
-  value: FocalZoom
-  onChange: (v: FocalZoom) => void
+  value: FocalLength35mm
+  onChange: (v: FocalLength35mm) => void
   device: Device | null
 }
 
-/**
- * 1x ~ 5x 사이를 0.5 단위로 + device 가 가진 zoomFactor (0.5x 등 ultra-wide 포함)
- * 를 합쳐 정렬한 stop 배열을 반환.
- */
+const STANDARD_FOCALS: readonly number[] = [
+  13, 18, 24, 28, 35, 50, 70, 85, 120, 200, 400,
+]
+
 function buildFocalStops(device: Device | null): number[] {
-  const base: number[] = []
-  for (let v = 1.0; v <= 5.0 + 1e-6; v += 0.5) {
-    base.push(Math.round(v * 10) / 10)
-  }
-  const extras = device?.lenses?.map((l) => l.zoomFactor) ?? []
-  const merged = Array.from(new Set([...base, ...extras])).sort((a, b) => a - b)
+  const lensMm = device?.lenses?.map((l) => l.focalLength35mm) ?? []
+  const merged = Array.from(new Set([...STANDARD_FOCALS, ...lensMm])).sort(
+    (a, b) => a - b,
+  )
   return merged
 }
 
 function formatFocal(v: number): string {
-  if (Number.isInteger(v)) return `${v.toFixed(0)}x`
-  return `${v.toFixed(1)}x`
+  return `${Math.round(v)}mm`
 }
 
 export function FocalDial({ value, onChange, device }: FocalDialProps) {
@@ -38,8 +36,8 @@ export function FocalDial({ value, onChange, device }: FocalDialProps) {
       value={value}
       onChange={onChange}
       formatLabel={formatFocal}
-      caption="ZOOM"
-      ariaLabel="Focal length zoom"
+      caption="Focal Length"
+      ariaLabel="Focal length (35mm equivalent)"
     />
   )
 }
