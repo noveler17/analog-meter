@@ -7,6 +7,8 @@ import { ScrollDial } from './ScrollDial'
 interface ECDialProps {
   value: EC
   onChange: (v: EC) => void
+  /** Zone System ON 시 EC 는 측정에 영향 없음 — 비활성화 */
+  disabled?: boolean
 }
 
 const STOPS: readonly number[] = EC_VALUES
@@ -20,15 +22,24 @@ function formatEC(v: number): string {
   return `${sign}${abs.toFixed(1)}`
 }
 
-export function ECDial({ value, onChange }: ECDialProps) {
+export function ECDial({ value, onChange, disabled = false }: ECDialProps) {
   return (
-    <ScrollDial<number>
-      stops={STOPS}
-      value={value}
-      onChange={onChange}
-      formatLabel={formatEC}
-      caption="Exposure Compensation"
-      ariaLabel="Exposure compensation"
-    />
+    <div
+      style={{
+        opacity: disabled ? 0.35 : 1,
+        pointerEvents: disabled ? 'none' : undefined,
+        transition: 'opacity 0.18s',
+      }}
+      aria-disabled={disabled}
+    >
+      <ScrollDial<number>
+        stops={STOPS}
+        value={value}
+        onChange={onChange}
+        formatLabel={formatEC}
+        caption={disabled ? 'Exposure Compensation (ZS off)' : 'Exposure Compensation'}
+        ariaLabel="Exposure compensation"
+      />
+    </div>
   )
 }

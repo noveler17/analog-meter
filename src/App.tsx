@@ -1,6 +1,6 @@
 // AnalogMeter — App shell.
-// Fixed Top / Variable Center / Fixed Bottom 3-구역 레이아웃을 구성하고
-// startCamera (lib/camera.ts) 로 Worker 파이프라인을 연결한다.
+// Fixed Top (카메라) / Zone Section (옵션) / Variable Center (콤보) / Fixed Bottom (다이얼) 레이아웃.
+// 측정은 스냅샷 모델 — 첫 프레임 1회 + Measure 버튼으로만 트리거.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CameraPreview, type CameraPreviewHandle } from './components/CameraPreview/CameraPreview'
@@ -19,6 +19,7 @@ import { startCamera, type CameraSession } from './lib/camera'
 import { focalLengthToZoom } from './lib/devices'
 import {
   applyHighlight,
+  classifyZone,
   generateCombos,
   sortByPriority,
 } from './lib/exposure-engine'
@@ -26,19 +27,48 @@ import type { EVResult, ZoneIndex } from './types'
 
 import styles from './App.module.css'
 
+/**
+ * 마지막 측정의 raw 휘도(evRaw)에 ISO/EC/우선순위를 다시 적용해 EVResult 를 만든다.
+ * 카메라를 새로 캡처하지 않고 표시 노출만 갱신한다.
+ */
+function recomputeFromSnapshot(
+  base: EVResult,
+  iso: number,
+  ec: number,
+  priorityF: EVResult['priorityF'],
+  prioritySS: EVResult['prioritySS'],
+): EVResult {
+  const ev = base.evRaw + Math.log2(iso / 100) - ec
+  const pairs = sortByPriority(
+    applyHighlight(generateCombos(ev), priorityF, prioritySS),
+  )
+  return {
+    ...base,
+    ev,
+    iso,
+    ec,
+    pairs,
+    priorityF,
+    prioritySS,
+    measuredAt: Date.now(),
+  }
+}
+
 function AppShell() {
   const state = useAppState()
   const previewRef = useRef<CameraPreviewHandle | null>(null)
   const sessionRef = useRef<CameraSession | null>(null)
   const [pairs, setPairs] = useState<EVResult['pairs']>([])
   const [cameraError, setCameraError] = useState<string | null>(null)
-  const [, setLastTick] = useState(0) // 60fps re-render trigger (값 자체는 미사용)
 
   // 다이얼은 mm 단위지만 카메라 트랙은 zoom 배율을 받는다 — 어댑터.
   const focalZoom = useMemo(
     () => focalLengthToZoom(state.focalLength35mm, state.device),
     [state.focalLength35mm, state.device],
   )
+
+  // ZS 모드일 때 EV 재합성에 사용할 EC (= 0). main thread 가 다이얼 EC 를 무시하도록.
+  const effectiveEC = state.zoneSysEnabled ? 0 : state.ec
 
   // ---- 카메라 + Worker 부팅 (마운트 1회) ----
   useEffect(() => {
@@ -66,7 +96,6 @@ function AppShell() {
               return
             }
             if (msg.type === 'ev-update') {
-              // Worker 가 EVResult 와 1:1 매핑된 페이로드를 보낸다.
               const result: EVResult = {
                 ev: msg.ev ?? 0,
                 evRaw: msg.evRaw ?? 0,
@@ -79,8 +108,8 @@ function AppShell() {
               }
               const zone = (msg.zone ?? 5) as ZoneIndex
               state.applyLive(result, zone)
+              state.pushMeasure(result)
               setPairs(result.pairs)
-              setLastTick(msg.timestamp)
               return
             }
             if (msg.type === 'spot-result' && msg.spot) {
@@ -88,8 +117,8 @@ function AppShell() {
                 id: `spot-${msg.timestamp}`,
                 x: msg.spot.x,
                 y: msg.spot.y,
-                zone: msg.spot.zone,
                 ev: msg.spot.ev,
+                evRaw: msg.spot.evRaw,
               })
             }
           },
@@ -99,6 +128,17 @@ function AppShell() {
           return
         }
         sessionRef.current = session
+
+        // 첫 프레임 도달 시점에 자동으로 1회 측정 — 사용자가 버튼을 누르기 전에도 화면 채움.
+        const triggerInitial = () => {
+          if (cancelled) return
+          void session.requestMeasure()
+        }
+        if (video.readyState >= 2) {
+          triggerInitial()
+        } else {
+          video.addEventListener('loadeddata', triggerInitial, { once: true })
+        }
       } catch (err) {
         if (!cancelled) {
           setCameraError(err instanceof Error ? err.message : 'camera failed')
@@ -114,7 +154,7 @@ function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ---- 다이얼 변경 → Worker 동기화 ----
+  // ---- 다이얼 변경 → Worker 동기화 (다음 spot 측정 정확성 위해) ----
   useEffect(() => {
     sessionRef.current?.send({ type: 'set-iso', iso: state.iso })
   }, [state.iso])
@@ -135,6 +175,33 @@ function AppShell() {
     })
   }, [state.priorityF, state.prioritySS])
 
+  // ---- ISO/EC/Priority/ZS 변경 시 마지막 스냅샷에서 EV/pairs 재합성 ----
+  // 카메라를 다시 캡처하지 않고 main thread 가 evRaw 위에 노출 보정만 다시 적용.
+  useEffect(() => {
+    const base = state.liveResult
+    if (!base) return
+    const next = recomputeFromSnapshot(
+      base,
+      state.iso,
+      effectiveEC,
+      state.priorityF,
+      state.prioritySS,
+    )
+    // base 와 동일한 결과면 dispatch 생략.
+    if (
+      next.ev === base.ev &&
+      next.iso === base.iso &&
+      next.ec === base.ec &&
+      next.priorityF === base.priorityF &&
+      next.prioritySS === base.prioritySS
+    ) {
+      return
+    }
+    state.applyLive(next, classifyZoneFromEvRaw(next.evRaw))
+    setPairs(next.pairs)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.iso, effectiveEC, state.priorityF, state.prioritySS, state.zoneSysEnabled])
+
   // ---- Spot Meter 트리거 ----
   const handleTap = useCallback(
     (nx: number, ny: number) => {
@@ -145,35 +212,40 @@ function AppShell() {
   )
 
   // ---- MEASURE 버튼 ----
-  // Zone System 활성 + selectedZone + selectedSpot 이 모두 있으면:
-  //   spot 의 EV 를 사용자가 선택한 Zone 에 떨어뜨리도록 노출 보정.
-  //   Zone V 가 mid-gray 기준이므로 (selectedZone - 5) stop 만큼 EV 를 빼면
-  //   결과 노출이 그 Zone 에 spot 을 두는 값이 된다.
+  // ZS OFF: 새 프레임을 캡처해 Worker 에 보낸다 (회신 시 pushMeasure 자동).
+  // ZS ON: 마지막 evRaw + selectedZone 으로 main thread 에서 보정만 재적용 (카메라 캡처 X).
   const handleMeasure = useCallback(() => {
-    if (!state.liveResult) return
+    const session = sessionRef.current
+    if (!session) return
 
-    const spot = state.spotMarkers.find((m) => m.id === state.selectedSpotId)
-    if (
-      state.zoneSysEnabled &&
-      state.selectedZone !== null &&
-      spot
-    ) {
-      const adjEV = spot.ev - (state.selectedZone - 5)
-      const newPairs = sortByPriority(
-        applyHighlight(generateCombos(adjEV), state.priorityF, state.prioritySS),
-      )
-      const adjusted: EVResult = {
-        ...state.liveResult,
-        ev: adjEV,
-        pairs: newPairs,
-        measuredAt: Date.now(),
-      }
-      setPairs(newPairs)
-      state.pushMeasure(adjusted)
+    if (!state.zoneSysEnabled) {
+      void session.requestMeasure()
       return
     }
 
-    state.pushMeasure(state.liveResult)
+    // ZS ON
+    const base = state.liveResult
+    if (!base) return
+    const selectedZone = state.selectedZone ?? state.lastSelectedZone
+    const spot = state.spotMarkers.find((m) => m.id === state.selectedSpotId)
+    const baseEvRaw = spot ? spot.evRaw : base.evRaw
+    const adjEV = baseEvRaw + Math.log2(state.iso / 100) - (selectedZone - 5)
+    const newPairs = sortByPriority(
+      applyHighlight(generateCombos(adjEV), state.priorityF, state.prioritySS),
+    )
+    const adjusted: EVResult = {
+      ...base,
+      ev: adjEV,
+      evRaw: baseEvRaw,
+      iso: state.iso,
+      ec: 0,
+      pairs: newPairs,
+      priorityF: state.priorityF,
+      prioritySS: state.prioritySS,
+      measuredAt: Date.now(),
+    }
+    setPairs(newPairs)
+    state.pushMeasure(adjusted)
   }, [state])
 
   const lastMeasuredAt =
@@ -181,9 +253,13 @@ function AppShell() {
       ? state.measureLog[state.measureLog.length - 1].measuredAt
       : null
 
+  // SpotMarker 표시 zone 은 사용자가 선택한 Zone 을 그대로 따라간다.
+  const spotDisplayZone: ZoneIndex =
+    state.selectedZone ?? state.lastSelectedZone
+
   return (
     <div className={styles.app}>
-      {/* Fixed Top */}
+      {/* Fixed Top — 카메라 only */}
       <header className={styles.topSection}>
         <CameraPreview
           ref={previewRef}
@@ -200,27 +276,32 @@ function AppShell() {
               if (!b) state.clearSpots()
             }}
           />
-          {state.zoneSysEnabled && (
-            <ZoneBar
-              currentZone={state.currentZone}
-              selectedZone={state.selectedZone}
-              onSelectZone={state.setSelectedZone}
-            />
-          )}
           {state.zoneSysEnabled &&
             state.spotMarkers.map((m) => (
               <SpotMeter
                 key={m.id}
                 x={m.x}
                 y={m.y}
-                zone={m.zone}
-                ev={m.ev}
+                zone={spotDisplayZone}
+                ev={m.evRaw + Math.log2(state.iso / 100)}
                 selected={m.id === state.selectedSpotId}
                 onSelect={() => state.setSelectedSpot(m.id)}
               />
             ))}
         </CameraPreview>
       </header>
+
+      {/* Zone Section — ZS ON 시 카메라 아래 가로 스트립 */}
+      {state.zoneSysEnabled && (
+        <div className={styles.zoneSection}>
+          <ZoneBar
+            orientation="horizontal"
+            currentZone={state.currentZone}
+            selectedZone={state.selectedZone}
+            onSelectZone={state.setSelectedZone}
+          />
+        </div>
+      )}
 
       {/* Variable Center */}
       <main className={styles.centerSection}>
@@ -236,7 +317,7 @@ function AppShell() {
       <footer className={styles.bottomSection}>
         <MeasureButton
           onMeasure={handleMeasure}
-          disabled={state.liveResult === null}
+          disabled={false}
           lastMeasuredAt={lastMeasuredAt}
         />
         <div className={styles.dialStack}>
@@ -248,7 +329,11 @@ function AppShell() {
           <div className={styles.dialDivider} />
           <ISODial value={state.iso} onChange={state.setISO} />
           <div className={styles.dialDivider} />
-          <ECDial value={state.ec} onChange={state.setEC} />
+          <ECDial
+            value={state.ec}
+            onChange={state.setEC}
+            disabled={state.zoneSysEnabled}
+          />
         </div>
         <PresetPanel
           presets={state.presets}
@@ -261,6 +346,17 @@ function AppShell() {
       <GitHubLink />
     </div>
   )
+}
+
+/**
+ * evRaw 만으로 Zone 추정 — luminance 가 없을 때 사용.
+ * Zone V (mid-gray) 는 ev100 ≈ 7.17 (CALIBRATION=100 기준).
+ */
+function classifyZoneFromEvRaw(evRaw: number): ZoneIndex {
+  // 역산: luminance = 0.18 * 2^(evRaw - log2(0.18 * 100 * 100 / 12.5))
+  // → luminance ≈ 0.18 * 2^(evRaw - 7.17)
+  const luminance = 0.18 * Math.pow(2, evRaw - 7.17)
+  return classifyZone(luminance)
 }
 
 export default function App() {

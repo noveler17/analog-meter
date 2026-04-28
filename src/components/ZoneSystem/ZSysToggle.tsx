@@ -12,7 +12,11 @@ export function ZSysToggle({ enabled, onChange }: ZSysToggleProps) {
     <button
       type="button"
       className={`${styles.zsysToggle} ${enabled ? styles.zsysToggleOn : ''}`}
-      onClick={() => onChange(!enabled)}
+      onClick={(e) => {
+        e.stopPropagation()
+        onChange(!enabled)
+      }}
+      onPointerUp={(e) => e.stopPropagation()}
       aria-pressed={enabled}
       aria-label="Toggle Zone System"
     >

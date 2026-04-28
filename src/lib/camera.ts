@@ -2,13 +2,12 @@
 //
 // 책임:
 //   1. getUserMedia 로 후면 카메라 시작 → <video> 엘리먼트에 attach.
-//   2. requestVideoFrameCallback (또는 rAF 폴백) 으로 매 프레임 createImageBitmap.
-//   3. 비트맵을 Worker 로 transferable 로 전송.
+//   2. 사용자 액션(첫 프레임 / Measure 버튼 / spot 탭) 시점에만 createImageBitmap.
+//   3. 비트맵을 Worker 로 transferable 로 전송 (스냅샷 모델 — 연속 송신 안 함).
 //   4. Worker 결과(WorkerResult) 콜백.
 //
 // Worker 자체는 src/workers/luminance.worker.ts. 메인은 픽셀을 분석하지 않는다.
 
-import { PERF } from '../tokens'
 import type {
   EC,
   FRange,
@@ -18,13 +17,6 @@ import type {
   WorkerRequest,
   WorkerResult,
 } from '../types'
-
-// rVFC 가 있는 HTMLVideoElement 를 옵셔널 메소드로 좁힌다.
-// (TS lib.dom 에 정의가 없으면 메소드는 undefined.)
-type VideoElementWithRVFC = HTMLVideoElement & {
-  requestVideoFrameCallback?: (cb: (now: number) => void) => number
-  cancelVideoFrameCallback?: (handle: number) => void
-}
 
 // ---------------------------------------------------------------------------
 // 공개 API
@@ -48,6 +40,8 @@ export interface StartCameraOptions {
 export interface CameraSession {
   /** Worker 로 메시지 전송. (frame 외 컨트롤 메시지) */
   send: (msg: WorkerRequest, transfer?: Transferable[]) => void
+  /** 단발 측정 — 현재 video 프레임을 캡처해 Worker 에 전송. ev-update 회신. */
+  requestMeasure: () => Promise<void>
   /** 사용자가 화면을 탭했을 때 spot meter 요청. (0~1 정규화 좌표) */
   requestSpot: (nx: number, ny: number) => Promise<void>
   /** 카메라 + 워커 정리. */
@@ -58,7 +52,8 @@ export interface CameraSession {
  * 카메라 프리뷰 + Worker 파이프라인 시작.
  *
  *   - getUserMedia 권한 거부 시 'error' WorkerResult 를 송신한 뒤 reject 한다.
- *   - rVFC 미지원 시 setInterval(WORKER_INTERVAL_MS) 폴백.
+ *   - 자동 측정 루프는 없다. 호출자(App)가 video 'loadeddata' 이벤트나
+ *     사용자 Measure 버튼 시점에 `requestMeasure()` 를 명시적으로 호출한다.
  */
 export async function startCamera(options: StartCameraOptions): Promise<CameraSession> {
   const {
@@ -123,45 +118,29 @@ export async function startCamera(options: StartCameraOptions): Promise<CameraSe
     /* autoplay 일시 실패는 무시 — 첫 user gesture 후 재시도. */
   })
 
-  // 4) 프레임 루프.
-  const v = video as VideoElementWithRVFC
   let stopped = false
-  let rvfcHandle: number | null = null
-  let intervalHandle: number | null = null
-  let lastPostedAt = 0
 
-  const pumpFrame = async () => {
+  // 4) 단발 측정 — 메인 스레드가 명시적으로 호출.
+  const requestMeasure = async () => {
     if (stopped) return
     if (video.readyState < 2 /* HAVE_CURRENT_DATA */) return
-    const now = performance.now()
-    if (now - lastPostedAt < PERF.WORKER_INTERVAL_MS) return
-    lastPostedAt = now
     try {
-      // createImageBitmap 은 transferable 한 결과를 반환.
       const bitmap = await createImageBitmap(video)
       const req: WorkerRequest = { type: 'frame', frame: bitmap }
       worker.postMessage(req, [bitmap])
-    } catch {
-      // 일시적 GPU 오류 — 다음 프레임에서 재시도.
+    } catch (err) {
+      onMessage({
+        type: 'error',
+        error: err instanceof Error ? err.message : 'measure capture failed',
+        timestamp: performance.now(),
+      })
     }
-  }
-
-  if (typeof v.requestVideoFrameCallback === 'function') {
-    const tick = () => {
-      if (stopped) return
-      void pumpFrame()
-      rvfcHandle = v.requestVideoFrameCallback!(tick)
-    }
-    rvfcHandle = v.requestVideoFrameCallback(tick)
-  } else {
-    intervalHandle = window.setInterval(() => {
-      void pumpFrame()
-    }, PERF.WORKER_INTERVAL_MS)
   }
 
   // 5) Spot meter 요청 — 메인 스레드가 별도 비트맵 캡처 후 송신.
   const requestSpot = async (nx: number, ny: number) => {
     if (stopped) return
+    if (video.readyState < 2) return
     try {
       const bitmap = await createImageBitmap(video)
       const req: WorkerRequest = {
@@ -184,12 +163,6 @@ export async function startCamera(options: StartCameraOptions): Promise<CameraSe
   const stop = () => {
     if (stopped) return
     stopped = true
-    if (rvfcHandle !== null && typeof v.cancelVideoFrameCallback === 'function') {
-      v.cancelVideoFrameCallback(rvfcHandle)
-    }
-    if (intervalHandle !== null) {
-      clearInterval(intervalHandle)
-    }
     worker.postMessage({ type: 'stop' } satisfies WorkerRequest)
     worker.terminate()
     stream.getTracks().forEach((t) => t.stop())
@@ -198,5 +171,5 @@ export async function startCamera(options: StartCameraOptions): Promise<CameraSe
     }
   }
 
-  return { send, requestSpot, stop }
+  return { send, requestMeasure, requestSpot, stop }
 }

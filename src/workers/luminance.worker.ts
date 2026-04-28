@@ -18,7 +18,6 @@ import {
   sortByPriority,
   spotLuminance,
 } from '../lib/exposure-engine'
-import { PERF } from '../tokens'
 import type {
   EC,
   EV,
@@ -48,9 +47,6 @@ let prioritySS: SSRange | null = null
 
 let canvas: OffscreenCanvas | null = null
 let canvasCtx: OffscreenCanvasRenderingContext2D | null = null
-
-// 송신 throttle.
-let lastEmit = 0
 
 // ---------------------------------------------------------------------------
 // 메시지 라우팅
@@ -148,11 +144,8 @@ function handleFrame(bitmap: ImageBitmap): void {
 
   if (!running) return
 
-  // 30fps 송신 throttle — 측정 주기 미달 시 skip.
+  // 스냅샷 모델: 메인 스레드가 명시적으로 frame 을 보낼 때마다 1회 계산 + 송신.
   const now = performance.now()
-  if (now - lastEmit < PERF.WORKER_INTERVAL_MS) return
-  lastEmit = now
-
   const imageData = canvasCtx.getImageData(0, 0, width, height)
   const luminance = averageLuminance(imageData.data)
   const evRaw: EV = luminanceToEV100(luminance)
@@ -194,6 +187,7 @@ function handleSpot(bitmap: ImageBitmap, nx: number, ny: number): void {
   const spotLum = spotLuminance(imageData.data, width, height, nx, ny)
   const meanLum = averageLuminance(imageData.data)
 
+  const spotEvRaw = luminanceToEV100(spotLum)
   const spotEV = luminanceToEV(spotLum, iso, ec)
   const meanEV = luminanceToEV(meanLum, iso, ec)
   const zone = classifyZoneByEV(spotEV, meanEV)
@@ -204,6 +198,7 @@ function handleSpot(bitmap: ImageBitmap, nx: number, ny: number): void {
     spot: {
       zone,
       ev: spotEV,
+      evRaw: spotEvRaw,
       x: nx,
       y: ny,
     },

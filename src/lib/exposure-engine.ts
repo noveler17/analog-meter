@@ -54,14 +54,15 @@ export function luminanceToEV100(luminance: number): EV {
 }
 
 /**
- * ISO + EC 보정이 반영된 최종 EV.
- *   ISO 200 → +1 EV (한 스탑 더 밝음 표시),
- *   EC -1   → -1 EV (한 스탑 어두운 노출 의도).
+ * ISO + EC 보정이 반영된 최종 EV (콤보 생성에 그대로 투입).
+ *   ISO 200 → +1 EV (감도 ↑ → 동일 장면에서 더 빠른 셔터/좁은 조리개 추천).
+ *   EC +1   → -1 EV (사용자가 "1스톱 더 밝게" 의도 → 더 많은 노출 = 더 낮은 EV).
+ *   `generateCombos(ev)` 가 t = N²/2^EV 를 사용하므로 EV ↓ 일수록 셔터 ↓(느려짐) = 더 밝은 사진.
  */
 export function luminanceToEV(luminance: number, iso: ISO, ec: EC): EV {
   const ev100 = luminanceToEV100(luminance)
   const isoAdj = Math.log2(iso / 100)
-  return ev100 + isoAdj + ec
+  return ev100 + isoAdj - ec
 }
 
 // ---------------------------------------------------------------------------

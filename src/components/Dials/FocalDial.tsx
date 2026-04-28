@@ -18,7 +18,10 @@ const STANDARD_FOCALS: readonly number[] = [
 
 function buildFocalStops(device: Device | null): number[] {
   const lensMm = device?.lenses?.map((l) => l.focalLength35mm) ?? []
-  const merged = Array.from(new Set([...STANDARD_FOCALS, ...lensMm])).sort(
+  // 디바이스가 표현 가능한 최소 mm 미만 표준 stop 은 제외.
+  const minMm = lensMm.length > 0 ? Math.min(...lensMm) : 0
+  const standard = STANDARD_FOCALS.filter((f) => f >= minMm)
+  const merged = Array.from(new Set([...standard, ...lensMm])).sort(
     (a, b) => a - b,
   )
   return merged

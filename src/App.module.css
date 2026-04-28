@@ -15,18 +15,21 @@
   padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* Fixed Top — 카메라 + Zone System.
- *  세로형 폰: 화면 높이의 약 45% 차지. 작은 폰에서도 컨트롤 영역이 좁아지지 않도록 캡. */
+/* Fixed Top — 카메라 only.
+ *  높이는 카메라 비디오의 가로세로 비율을 따라간다 (CameraPreview 가 inline aspect-ratio 주입). */
 .topSection {
   position: relative;
   flex-shrink: 0;
   width: 100%;
-  height: 45vh;
-  height: 45dvh;
-  min-height: 280px;
-  max-height: 520px;
   background: var(--bg);
   overflow: hidden;
+}
+
+/* Zone System ON 시 카메라 아래 가로 스트립으로 노출되는 슬롯. */
+.zoneSection {
+  flex-shrink: 0;
+  padding: 6px 8px 4px;
+  background: var(--bg);
 }
 
 /* Variable Center — 스크롤 가능 조합 목록. */
@@ -67,19 +70,3 @@
   margin: 0 12px;
 }
 
-/* 작은 폰 (~ iPhone SE 5.4") 대응. */
-@media (max-height: 700px) {
-  .topSection {
-    height: 38vh;
-    height: 38dvh;
-    min-height: 220px;
-  }
-}
-
-/* 큰 폰 (Pro Max, Ultra) 대응. */
-@media (min-height: 900px) {
-  .topSection {
-    height: 50vh;
-    height: 50dvh;
-  }
-}

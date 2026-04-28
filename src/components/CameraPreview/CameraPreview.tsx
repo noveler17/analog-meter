@@ -6,6 +6,7 @@ import {
   useCallback,
   useImperativeHandle,
   useRef,
+  useState,
   type PointerEvent,
 } from 'react'
 import type { EV, FocalZoom } from '../../types'
@@ -37,6 +38,7 @@ export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>
   ) {
     const videoRef = useRef<HTMLVideoElement | null>(null)
     const containerRef = useRef<HTMLDivElement | null>(null)
+    const [aspect, setAspect] = useState<string | null>(null)
 
     useImperativeHandle(
       ref,
@@ -45,6 +47,12 @@ export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>
       }),
       [],
     )
+
+    const handleLoadedMetadata = useCallback(() => {
+      const v = videoRef.current
+      if (!v || !v.videoWidth || !v.videoHeight) return
+      setAspect(`${v.videoWidth} / ${v.videoHeight}`)
+    }, [])
 
     const handlePointerUp = useCallback(
       (e: PointerEvent<HTMLDivElement>) => {
@@ -73,6 +81,7 @@ export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>
         ref={containerRef}
         className={styles.preview}
         onPointerUp={handlePointerUp}
+        style={aspect ? { aspectRatio: aspect } : undefined}
       >
         <video
           ref={videoRef}
@@ -80,6 +89,7 @@ export const CameraPreview = forwardRef<CameraPreviewHandle, CameraPreviewProps>
           playsInline
           muted
           autoPlay
+          onLoadedMetadata={handleLoadedMetadata}
         />
         {/* 가이드 박스 */}
         <div

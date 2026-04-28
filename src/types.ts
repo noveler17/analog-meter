@@ -128,7 +128,10 @@ export type WorkerMessageOut = WorkerResult
 /** 사용자가 화면을 탭하여 측정한 스폿 결과. */
 export interface SpotResult {
   zone: ZoneIndex
+  /** 현재 ISO/EC 가 반영된 EV. */
   ev: EV
+  /** ISO 100 / EC 0 기준 raw EV. main thread 가 ISO/EC 변경 후에도 재계산할 때 사용. */
+  evRaw: EV
   /** 0-1 정규화된 탭 위치. */
   x: number
   y: number

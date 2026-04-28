@@ -31,10 +31,12 @@ function mainFocal(device: Device | null): FocalLength35mm {
 }
 
 // ---------------------------------------------------------------------------
-// 1. localStorage helpers (Preset 저장)
+// 1. localStorage helpers
 // ---------------------------------------------------------------------------
 
 const PRESET_KEY = 'analog-meter:presets'
+const PRIORITY_KEY = 'analog-meter:priority'
+const LAST_ZONE_KEY = 'analog-meter:last-zone'
 const MAX_PRESETS = 10
 
 function loadPresetsFromStorage(): Preset[] {
@@ -57,6 +59,53 @@ function savePresetsToStorage(presets: Preset[]): void {
   }
 }
 
+interface PriorityPersist {
+  f: FRange | null
+  ss: SSRange | null
+}
+
+function loadPriorityFromStorage(): PriorityPersist {
+  try {
+    const raw = localStorage.getItem(PRIORITY_KEY)
+    if (!raw) return { f: null, ss: null }
+    const parsed = JSON.parse(raw)
+    return {
+      f: Array.isArray(parsed?.f) && parsed.f.length === 2 ? (parsed.f as FRange) : null,
+      ss: Array.isArray(parsed?.ss) && parsed.ss.length === 2 ? (parsed.ss as SSRange) : null,
+    }
+  } catch {
+    return { f: null, ss: null }
+  }
+}
+
+function savePriorityToStorage(p: PriorityPersist): void {
+  try {
+    localStorage.setItem(PRIORITY_KEY, JSON.stringify(p))
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadLastZoneFromStorage(): ZoneIndex {
+  try {
+    const raw = localStorage.getItem(LAST_ZONE_KEY)
+    if (raw === null) return 5
+    const n = Number(raw)
+    if (Number.isInteger(n) && n >= 0 && n <= 10) return n as ZoneIndex
+    return 5
+  } catch {
+    return 5
+  }
+}
+
+function saveLastZoneToStorage(z: ZoneIndex): void {
+  try {
+    localStorage.setItem(LAST_ZONE_KEY, String(z))
+  } catch {
+    /* ignore */
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 2. State shape & reducer
 // ---------------------------------------------------------------------------
@@ -65,8 +114,10 @@ interface SpotMarker {
   id: string
   x: number
   y: number
-  zone: ZoneIndex
+  /** ISO/EC 가 반영된 EV (UI 표시용). */
   ev: EV
+  /** ISO 100 / EC 0 기준 raw EV — Zone 보정에 사용. */
+  evRaw: EV
 }
 
 export interface AppStateValue {
@@ -79,6 +130,8 @@ export interface AppStateValue {
   zoneSysEnabled: boolean
   /** Zone System 모드에서 사용자가 선택한 목표 Zone. */
   selectedZone: ZoneIndex | null
+  /** 마지막으로 사용자가 선택했던 Zone — 다음에 ZS 켤 때 복원. 영속. */
+  lastSelectedZone: ZoneIndex
   /** Zone System 모드에서 보정 기준 spot의 id. */
   selectedSpotId: string | null
   lastEV: EV | null
@@ -97,7 +150,7 @@ type Action =
   | { type: 'set-device'; device: Device | null }
   | { type: 'set-priority'; priorityF: FRange | null; prioritySS: SSRange | null }
   | { type: 'set-zone-sys'; enabled: boolean }
-  | { type: 'select-zone'; zone: ZoneIndex | null }
+  | { type: 'select-zone'; zone: ZoneIndex }
   | { type: 'select-spot'; id: string | null }
   | { type: 'apply-live'; result: EVResult; zone: ZoneIndex }
   | { type: 'push-measure'; result: EVResult }
@@ -105,6 +158,7 @@ type Action =
   | { type: 'clear-spots' }
   | { type: 'set-presets'; presets: Preset[] }
   | { type: 'apply-preset'; preset: Preset; mainMm: FocalLength35mm }
+  | { type: 'init-persist'; priorityF: FRange | null; prioritySS: SSRange | null; lastZone: ZoneIndex }
 
 function reducer(state: AppStateValue, action: Action): AppStateValue {
   switch (action.type) {
@@ -127,9 +181,13 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
         prioritySS: action.prioritySS,
       }
     case 'set-zone-sys':
-      // 토글 OFF 시 selection 도 함께 해제.
+      // 토글 ON 시 기본/마지막 zone 복원. OFF 시 selection 정리.
       return action.enabled
-        ? { ...state, zoneSysEnabled: true }
+        ? {
+            ...state,
+            zoneSysEnabled: true,
+            selectedZone: state.lastSelectedZone,
+          }
         : {
             ...state,
             zoneSysEnabled: false,
@@ -138,7 +196,11 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
             spotMarkers: [],
           }
     case 'select-zone':
-      return { ...state, selectedZone: action.zone }
+      return {
+        ...state,
+        selectedZone: action.zone,
+        lastSelectedZone: action.zone,
+      }
     case 'select-spot':
       return { ...state, selectedSpotId: action.id }
     case 'apply-live':
@@ -152,16 +214,16 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
       return {
         ...state,
         measureLog: [...state.measureLog, action.result].slice(-50),
+        liveResult: action.result,
+        lastEV: action.result.ev,
       }
-    case 'add-spot': {
-      const next = [...state.spotMarkers, action.marker].slice(-3)
-      // 새 spot은 자동 선택. 사용자가 명시적으로 다른 spot을 선택했다면 유지하지 않고 최신으로 갱신.
+    case 'add-spot':
+      // 한 번에 spot 한 개만. 새 탭은 이전 spot 을 교체.
       return {
         ...state,
-        spotMarkers: next,
+        spotMarkers: [action.marker],
         selectedSpotId: action.marker.id,
       }
-    }
     case 'clear-spots':
       return { ...state, spotMarkers: [], selectedSpotId: null }
     case 'set-presets':
@@ -184,6 +246,13 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
         prioritySS: p.prioritySS,
       }
     }
+    case 'init-persist':
+      return {
+        ...state,
+        priorityF: action.priorityF,
+        prioritySS: action.prioritySS,
+        lastSelectedZone: action.lastZone,
+      }
     default:
       return state
   }
@@ -198,6 +267,7 @@ const initialState: AppStateValue = {
   prioritySS: null,
   zoneSysEnabled: false,
   selectedZone: null,
+  lastSelectedZone: 5,
   selectedSpotId: null,
   lastEV: null,
   currentZone: null,
@@ -218,7 +288,7 @@ export interface AppStateAPI extends AppStateValue {
   setDevice: (d: Device | null) => void
   setPriority: (f: FRange | null, ss: SSRange | null) => void
   setZoneSysEnabled: (b: boolean) => void
-  setSelectedZone: (z: ZoneIndex | null) => void
+  setSelectedZone: (z: ZoneIndex) => void
   setSelectedSpot: (id: string | null) => void
   applyLive: (result: EVResult, zone: ZoneIndex) => void
   pushMeasure: (result: EVResult) => void
@@ -234,18 +304,34 @@ const AppStateContext = createContext<AppStateAPI | null>(null)
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
 
-  // 1) 부팅: 디바이스 자동 감지 + Preset 복원.
+  // 1) 부팅: 디바이스 자동 감지 + Preset/Priority/LastZone 영속 복원.
   useEffect(() => {
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
     const detected = detectDevice(ua) ?? getDeviceById('iphone-16')
     dispatch({ type: 'set-device', device: detected })
     dispatch({ type: 'set-presets', presets: loadPresetsFromStorage() })
+    const priority = loadPriorityFromStorage()
+    const lastZone = loadLastZoneFromStorage()
+    dispatch({
+      type: 'init-persist',
+      priorityF: priority.f,
+      prioritySS: priority.ss,
+      lastZone,
+    })
   }, [])
 
-  // 2) Preset 변경 시 localStorage 동기화.
+  // 2) Preset/Priority/LastZone 변경 시 localStorage 동기화.
   useEffect(() => {
     savePresetsToStorage(state.presets)
   }, [state.presets])
+
+  useEffect(() => {
+    savePriorityToStorage({ f: state.priorityF, ss: state.prioritySS })
+  }, [state.priorityF, state.prioritySS])
+
+  useEffect(() => {
+    saveLastZoneToStorage(state.lastSelectedZone)
+  }, [state.lastSelectedZone])
 
   // 3) 액션 디스패처 — 안정 참조.
   const setISO = useCallback((v: ISO) => dispatch({ type: 'set-iso', iso: v }), [])
@@ -268,7 +354,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [],
   )
   const setSelectedZone = useCallback(
-    (z: ZoneIndex | null) => dispatch({ type: 'select-zone', zone: z }),
+    (z: ZoneIndex) => dispatch({ type: 'select-zone', zone: z }),
     [],
   )
   const setSelectedSpot = useCallback(
