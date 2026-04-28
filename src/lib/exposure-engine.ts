@@ -208,15 +208,22 @@ export function applyHighlight(
   }))
 }
 
-function priorityScore(p: ComboPairHighlighted): number {
-  return (p.matchF ? 1 : 0) + (p.matchSS ? 1 : 0)
-}
-
 /**
- * 우선순위 매칭 강도(2: 양쪽 / 1: 한쪽 / 0: 없음) 기준 내림차순 정렬.
+ * 우선순위 매칭 스코어:
+ *   3 = 조리개 + 셔터 모두 매칭 (최우선)
+ *   2 = 셔터만 매칭 (셔터 스피드 > 조리개)
+ *   1 = 조리개만 매칭
+ *   0 = 매칭 없음
  * 동순위 내에서는 aperture 오름차순(작은 f-number 먼저).
  *   Array.prototype.sort 는 V8/JSC 에서 stable — 입력 순서가 보존된다.
  */
+function priorityScore(p: ComboPairHighlighted): number {
+  if (p.matchF && p.matchSS) return 3
+  if (p.matchSS) return 2
+  if (p.matchF) return 1
+  return 0
+}
+
 export function sortByPriority(
   pairs: ComboPairHighlighted[],
 ): ComboPairHighlighted[] {

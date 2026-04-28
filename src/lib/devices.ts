@@ -279,6 +279,25 @@ export function focalLengthToZoom(
 }
 
 /**
+ * 카메라 트랙의 zoom 배율을 device DB의 가장 가까운 렌즈 focal length(35mm)로 역변환.
+ * zoom 미지원 기기에서 undefined/null이 오면 main 1x 렌즈 focal을 반환.
+ */
+export function zoomToFocalLength(zoom: number | undefined, device: Device | null): FocalLength35mm {
+  if (!device || device.lenses.length === 0) return 24 as FocalLength35mm
+  const z = zoom ?? 1.0
+  let closest = device.lenses[0]
+  let minDist = Math.abs(z - closest.zoomFactor)
+  for (const lens of device.lenses) {
+    const dist = Math.abs(z - lens.zoomFactor)
+    if (dist < minDist) {
+      closest = lens
+      minDist = dist
+    }
+  }
+  return closest.focalLength35mm
+}
+
+/**
  * User-Agent 기반 디바이스 감지 (best-effort).
  *   - iOS UA에는 정확한 모델명이 노출되지 않으므로, iPhone일 경우엔 최신 일반 모델로 fallback.
  *   - Android는 model 토큰(예: 'SM-S928') 매칭 시도.

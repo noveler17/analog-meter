@@ -25,6 +25,8 @@ import type {
 } from '../types'
 import { detectDevice, getDeviceById } from '../lib/devices'
 
+export type Theme = 'system' | 'dark' | 'light'
+
 // Main(1x) 렌즈의 35mm 환산 mm. fallback 24 (요즘 폰 기준).
 function mainFocal(device: Device | null): FocalLength35mm {
   return device?.lenses.find((l) => l.zoomFactor === 1.0)?.focalLength35mm ?? 24
@@ -37,6 +39,7 @@ function mainFocal(device: Device | null): FocalLength35mm {
 const PRESET_KEY = 'analog-meter:presets'
 const PRIORITY_KEY = 'analog-meter:priority'
 const LAST_ZONE_KEY = 'analog-meter:last-zone'
+const THEME_KEY = 'analog-meter:theme'
 const MAX_PRESETS = 10
 
 function loadPresetsFromStorage(): Preset[] {
@@ -106,11 +109,29 @@ function saveLastZoneToStorage(z: ZoneIndex): void {
   }
 }
 
+function loadThemeFromStorage(): Theme {
+  try {
+    const raw = localStorage.getItem(THEME_KEY)
+    if (raw === 'dark' || raw === 'light' || raw === 'system') return raw
+    return 'system'
+  } catch {
+    return 'system'
+  }
+}
+
+function saveThemeToStorage(t: Theme): void {
+  try {
+    localStorage.setItem(THEME_KEY, t)
+  } catch {
+    /* ignore */
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 2. State shape & reducer
 // ---------------------------------------------------------------------------
 
-interface SpotMarker {
+export interface SpotMarker {
   id: string
   x: number
   y: number
@@ -132,15 +153,15 @@ export interface AppStateValue {
   selectedZone: ZoneIndex | null
   /** 마지막으로 사용자가 선택했던 Zone — 다음에 ZS 켤 때 복원. 영속. */
   lastSelectedZone: ZoneIndex
-  /** Zone System 모드에서 보정 기준 spot의 id. */
-  selectedSpotId: string | null
   lastEV: EV | null
   currentZone: ZoneIndex | null
   measureLog: EVResult[]
   presets: Preset[]
   /** 마지막으로 수신한 EVResult — MEASURE 버튼이 push 할 페이로드 후보. */
   liveResult: EVResult | null
-  spotMarkers: SpotMarker[]
+  /** Zone System 모드의 단일 Spot marker (단일 지점만 허용). */
+  spotMarker: SpotMarker | null
+  theme: Theme
 }
 
 type Action =
@@ -151,14 +172,20 @@ type Action =
   | { type: 'set-priority'; priorityF: FRange | null; prioritySS: SSRange | null }
   | { type: 'set-zone-sys'; enabled: boolean }
   | { type: 'select-zone'; zone: ZoneIndex }
-  | { type: 'select-spot'; id: string | null }
   | { type: 'apply-live'; result: EVResult; zone: ZoneIndex }
   | { type: 'push-measure'; result: EVResult }
-  | { type: 'add-spot'; marker: SpotMarker }
+  | { type: 'set-spot'; marker: SpotMarker }
   | { type: 'clear-spots' }
   | { type: 'set-presets'; presets: Preset[] }
   | { type: 'apply-preset'; preset: Preset; mainMm: FocalLength35mm }
-  | { type: 'init-persist'; priorityF: FRange | null; prioritySS: SSRange | null; lastZone: ZoneIndex }
+  | { type: 'set-theme'; theme: Theme }
+  | {
+      type: 'init-persist'
+      priorityF: FRange | null
+      prioritySS: SSRange | null
+      lastZone: ZoneIndex
+      theme: Theme
+    }
 
 function reducer(state: AppStateValue, action: Action): AppStateValue {
   switch (action.type) {
@@ -169,7 +196,6 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
     case 'set-focal-length':
       return { ...state, focalLength35mm: action.focalLength35mm }
     case 'set-device': {
-      // 디바이스 변경 시 main lens mm로 focal length 정렬(이전이 같은 mm가 아닐 때만).
       const nextMain = mainFocal(action.device)
       const focal = state.focalLength35mm > 0 ? state.focalLength35mm : nextMain
       return { ...state, device: action.device, focalLength35mm: focal }
@@ -181,19 +207,19 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
         prioritySS: action.prioritySS,
       }
     case 'set-zone-sys':
-      // 토글 ON 시 기본/마지막 zone 복원. OFF 시 selection 정리.
+      // 토글 ON 시 기본/마지막 zone 복원(기본 Zone V). OFF 시 spot/selection 정리.
       return action.enabled
         ? {
             ...state,
             zoneSysEnabled: true,
             selectedZone: state.lastSelectedZone,
+            spotMarker: null,
           }
         : {
             ...state,
             zoneSysEnabled: false,
             selectedZone: null,
-            selectedSpotId: null,
-            spotMarkers: [],
+            spotMarker: null,
           }
     case 'select-zone':
       return {
@@ -201,8 +227,6 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
         selectedZone: action.zone,
         lastSelectedZone: action.zone,
       }
-    case 'select-spot':
-      return { ...state, selectedSpotId: action.id }
     case 'apply-live':
       return {
         ...state,
@@ -217,20 +241,17 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
         liveResult: action.result,
         lastEV: action.result.ev,
       }
-    case 'add-spot':
-      // 한 번에 spot 한 개만. 새 탭은 이전 spot 을 교체.
+    case 'set-spot':
       return {
         ...state,
-        spotMarkers: [action.marker],
-        selectedSpotId: action.marker.id,
+        spotMarker: action.marker,
       }
     case 'clear-spots':
-      return { ...state, spotMarkers: [], selectedSpotId: null }
+      return { ...state, spotMarker: null }
     case 'set-presets':
       return { ...state, presets: action.presets }
     case 'apply-preset': {
       const p = action.preset
-      // legacy focalZoom 만 있는 preset은 mainMm을 곱해서 mm로 환원.
       const focal =
         typeof p.focalLength35mm === 'number' && p.focalLength35mm > 0
           ? p.focalLength35mm
@@ -246,12 +267,15 @@ function reducer(state: AppStateValue, action: Action): AppStateValue {
         prioritySS: p.prioritySS,
       }
     }
+    case 'set-theme':
+      return { ...state, theme: action.theme }
     case 'init-persist':
       return {
         ...state,
         priorityF: action.priorityF,
         prioritySS: action.prioritySS,
         lastSelectedZone: action.lastZone,
+        theme: action.theme,
       }
     default:
       return state
@@ -268,13 +292,13 @@ const initialState: AppStateValue = {
   zoneSysEnabled: false,
   selectedZone: null,
   lastSelectedZone: 5,
-  selectedSpotId: null,
   lastEV: null,
   currentZone: null,
   measureLog: [],
   presets: [],
   liveResult: null,
-  spotMarkers: [],
+  spotMarker: null,
+  theme: 'system',
 }
 
 // ---------------------------------------------------------------------------
@@ -289,11 +313,11 @@ export interface AppStateAPI extends AppStateValue {
   setPriority: (f: FRange | null, ss: SSRange | null) => void
   setZoneSysEnabled: (b: boolean) => void
   setSelectedZone: (z: ZoneIndex) => void
-  setSelectedSpot: (id: string | null) => void
   applyLive: (result: EVResult, zone: ZoneIndex) => void
   pushMeasure: (result: EVResult) => void
-  addSpot: (marker: SpotMarker) => void
+  setSpot: (marker: SpotMarker) => void
   clearSpots: () => void
+  setTheme: (t: Theme) => void
   savePreset: (name: string) => void
   loadPreset: (id: string) => void
   deletePreset: (id: string) => void
@@ -304,7 +328,7 @@ const AppStateContext = createContext<AppStateAPI | null>(null)
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
 
-  // 1) 부팅: 디바이스 자동 감지 + Preset/Priority/LastZone 영속 복원.
+  // 1) 부팅: 디바이스 자동 감지 + Preset/Priority/LastZone/Theme 영속 복원.
   useEffect(() => {
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
     const detected = detectDevice(ua) ?? getDeviceById('iphone-16')
@@ -312,15 +336,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'set-presets', presets: loadPresetsFromStorage() })
     const priority = loadPriorityFromStorage()
     const lastZone = loadLastZoneFromStorage()
+    const theme = loadThemeFromStorage()
     dispatch({
       type: 'init-persist',
       priorityF: priority.f,
       prioritySS: priority.ss,
       lastZone,
+      theme,
     })
   }, [])
 
-  // 2) Preset/Priority/LastZone 변경 시 localStorage 동기화.
+  // 2) Preset/Priority/LastZone/Theme 변경 시 localStorage 동기화.
   useEffect(() => {
     savePresetsToStorage(state.presets)
   }, [state.presets])
@@ -332,6 +358,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveLastZoneToStorage(state.lastSelectedZone)
   }, [state.lastSelectedZone])
+
+  useEffect(() => {
+    saveThemeToStorage(state.theme)
+  }, [state.theme])
 
   // 3) 액션 디스패처 — 안정 참조.
   const setISO = useCallback((v: ISO) => dispatch({ type: 'set-iso', iso: v }), [])
@@ -357,10 +387,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     (z: ZoneIndex) => dispatch({ type: 'select-zone', zone: z }),
     [],
   )
-  const setSelectedSpot = useCallback(
-    (id: string | null) => dispatch({ type: 'select-spot', id }),
-    [],
-  )
   const applyLive = useCallback(
     (result: EVResult, zone: ZoneIndex) =>
       dispatch({ type: 'apply-live', result, zone }),
@@ -370,11 +396,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     (result: EVResult) => dispatch({ type: 'push-measure', result }),
     [],
   )
-  const addSpot = useCallback(
-    (marker: SpotMarker) => dispatch({ type: 'add-spot', marker }),
+  const setSpot = useCallback(
+    (marker: SpotMarker) => dispatch({ type: 'set-spot', marker }),
     [],
   )
   const clearSpots = useCallback(() => dispatch({ type: 'clear-spots' }), [])
+  const setTheme = useCallback(
+    (t: Theme) => dispatch({ type: 'set-theme', theme: t }),
+    [],
+  )
 
   const savePreset = useCallback(
     (name: string) => {
@@ -433,11 +463,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setPriority,
       setZoneSysEnabled,
       setSelectedZone,
-      setSelectedSpot,
       applyLive,
       pushMeasure,
-      addSpot,
+      setSpot,
       clearSpots,
+      setTheme,
       savePreset,
       loadPreset,
       deletePreset,
@@ -451,11 +481,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setPriority,
       setZoneSysEnabled,
       setSelectedZone,
-      setSelectedSpot,
       applyLive,
       pushMeasure,
-      addSpot,
+      setSpot,
       clearSpots,
+      setTheme,
       savePreset,
       loadPreset,
       deletePreset,

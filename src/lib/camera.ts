@@ -48,14 +48,21 @@ export interface CameraSession {
   stop: () => void
 }
 
+export interface CameraStartResult {
+  session: CameraSession
+  /** 카메라 트랙의 현재 zoom 배율 (MediaTrackSettings.zoom). 미지원 기기는 undefined. */
+  detectedZoom?: number
+}
+
 /**
  * 카메라 프리뷰 + Worker 파이프라인 시작.
  *
  *   - getUserMedia 권한 거부 시 'error' WorkerResult 를 송신한 뒤 reject 한다.
- *   - 자동 측정 루프는 없다. 호출자(App)가 video 'loadeddata' 이벤트나
- *     사용자 Measure 버튼 시점에 `requestMeasure()` 를 명시적으로 호출한다.
+ *   - 자동 측정 루프는 없다. 호출자(App)가 Measure 버튼 시점에
+ *     `requestMeasure()` 를 명시적으로 호출한다 (첫 프레임 자동 측정 없음).
+ *   - 카메라 시작 후 videoTrack.getSettings().zoom 을 읽어 detectedZoom 으로 반환.
  */
-export async function startCamera(options: StartCameraOptions): Promise<CameraSession> {
+export async function startCamera(options: StartCameraOptions): Promise<CameraStartResult> {
   const {
     video,
     onMessage,
@@ -118,6 +125,11 @@ export async function startCamera(options: StartCameraOptions): Promise<CameraSe
     /* autoplay 일시 실패는 무시 — 첫 user gesture 후 재시도. */
   })
 
+  // 현재 카메라 zoom 배율 읽기 (MediaTrackSettings API).
+  const videoTrack = stream.getVideoTracks()[0]
+  const trackSettings = videoTrack?.getSettings?.()
+  const detectedZoom: number | undefined = (trackSettings as MediaTrackSettings & { zoom?: number })?.zoom
+
   let stopped = false
 
   // 4) 단발 측정 — 메인 스레드가 명시적으로 호출.
@@ -171,5 +183,5 @@ export async function startCamera(options: StartCameraOptions): Promise<CameraSe
     }
   }
 
-  return { send, requestMeasure, requestSpot, stop }
+  return { session: { send, requestMeasure, requestSpot, stop }, detectedZoom }
 }

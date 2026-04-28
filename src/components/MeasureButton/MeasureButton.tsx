@@ -9,12 +9,15 @@ interface MeasureButtonProps {
   disabled?: boolean
   /** 마지막 측정 시각 (ms). 표시용. */
   lastMeasuredAt?: number | null
+  /** Zone System 활성 상태에서 아직 spot을 선택하지 않은 경우 안내 텍스트 표시. */
+  zoneSysActive?: boolean
 }
 
 export function MeasureButton({
   onMeasure,
   disabled,
   lastMeasuredAt,
+  zoneSysActive,
 }: MeasureButtonProps) {
   const [pulse, setPulse] = useState(false)
 
@@ -33,8 +36,8 @@ export function MeasureButton({
       disabled={disabled}
       aria-label="Measure and store current EV reading"
     >
-      <span className={styles.label}>MEASURE</span>
-      {lastMeasuredAt && (
+      <span className={styles.label}>{zoneSysActive ? 'TAP TO METER' : 'MEASURE'}</span>
+      {lastMeasuredAt && !zoneSysActive && (
         <span className={styles.timestamp}>
           {new Date(lastMeasuredAt).toLocaleTimeString([], {
             hour12: false,

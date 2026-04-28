@@ -163,6 +163,6 @@
 .zsysToggleOn {
   color: var(--green);
   border-color: var(--green);
-  background: rgba(0, 255, 65, 0.08);
+  background: var(--green-glow);
   box-shadow: 0 0 8px var(--green-glow);
 }

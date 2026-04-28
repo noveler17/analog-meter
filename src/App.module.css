@@ -9,10 +9,25 @@
   background: var(--bg);
   color: var(--green);
   overflow: hidden;
-  /* 더블탭 줌 방지 (전역에 적용되어 있지만 명시 — 컨테이너 단위 보강). */
   touch-action: manipulation;
-  /* iOS safe-area 대응. */
   padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* 좌측 패널 — 세로 레이아웃에서는 카메라 전체 너비. */
+.leftPanel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+/* 우측 패널 — 세로 레이아웃에서는 flex: 1 (남은 공간). */
+.rightPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Fixed Top — 카메라 only.
@@ -70,3 +85,49 @@
   margin: 0 12px;
 }
 
+/* =========================================================
+   와이드/폴더블 레이아웃 — 화면 비율 13:9 이상일 때 좌우 분할.
+   Galaxy Fold 펼침(2176×1812), iPad 가로 등 대상.
+   ========================================================= */
+@media (min-width: 600px) {
+  .app {
+    flex-direction: row;
+    padding-top: 0;
+  }
+
+  .leftPanel {
+    width: 50%;
+    height: 100dvh;
+    border-right: 1px solid var(--gray-700);
+    overflow: hidden;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .topSection {
+    /* 와이드 모드에서는 카메라가 좌측 높이를 채운다. */
+    flex: 1 1 auto;
+    height: 0; /* flex 비율로 높이 결정 */
+  }
+
+  .zoneSection {
+    /* Zone Bar를 카메라 아래 좌측에 유지. */
+    flex-shrink: 0;
+  }
+
+  .rightPanel {
+    width: 50%;
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .centerSection {
+    /* 와이드 모드에서 더 많은 combinations 표시 가능. */
+    min-height: 180px;
+    overflow-y: auto;
+  }
+
+  .bottomSection {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+    padding-right: calc(env(safe-area-inset-right, 0px) + 8px);
+  }
+}

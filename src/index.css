@@ -67,6 +67,21 @@ body {
   min-height: 100dvh;
 }
 
+/* 라이트 테마 — html[data-theme="light"] 으로 `:root` 다크 기본값을 덮어씀. */
+html[data-theme="light"] {
+  --bg: #F2F2EE;          /* off-white */
+  --green: #1A7A2E;       /* dark clover green (light bg 가독성) */
+  --green-dim: #2E9E42;
+  --green-glow: #1A7A2E22;
+  --white: #1A1A1A;       /* 반전 — 아이콘/텍스트 */
+  --gray-900: #EAEAE6;
+  --gray-800: #DFDFE0;
+  --gray-700: #CACAC8;
+  --gray-500: #999999;
+  --gray-300: #666666;
+  --red-warn: #C0392B;
+}
+
 /* 모든 인터랙티브 요소 최소 터치 타겟 보장 — 단, dialItem 처럼 width 만 있는
  * 컴포넌트는 자체 클래스가 width 를 명시한다. */
 button,

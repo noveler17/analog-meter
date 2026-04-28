@@ -29,6 +29,21 @@ export const COLORS = {
   RED_WARN: '#FF3B30',
 } as const
 
+/** 라이트 테마 색상 상수 (index.css [data-theme="light"] 와 1:1 대응). */
+export const LIGHT_COLORS = {
+  BG: '#F2F2EE',
+  GREEN: '#1A7A2E',
+  GREEN_DIM: '#2E9E42',
+  GREEN_GLOW: '#1A7A2E22',
+  WHITE: '#1A1A1A',
+  GRAY_900: '#EAEAE6',
+  GRAY_800: '#DFDFE0',
+  GRAY_700: '#CACAC8',
+  GRAY_500: '#999999',
+  GRAY_300: '#666666',
+  RED_WARN: '#C0392B',
+} as const
+
 // ---------------------------------------------------------------------------
 // 2. Typography
 // ---------------------------------------------------------------------------

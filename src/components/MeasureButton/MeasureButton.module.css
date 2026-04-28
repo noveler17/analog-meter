@@ -23,7 +23,7 @@
 }
 
 .measureBtn:active {
-  background: rgba(0, 255, 65, 0.12);
+  background: var(--green-glow);
   transform: scale(0.98);
 }
 

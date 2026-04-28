@@ -1,7 +1,8 @@
-// AnalogMeter — Preset 패널.
-// SAVE PRESET / LOAD PRESETS 버튼 + 슬롯 표시. localStorage 기반.
+// AnalogMeter — Preset 패널 (드로어 + 이름 입력 전담).
+// SAVE/LOAD 버튼은 ComboPairsList 헤더로 이동.
+// drawerOpen / naming 상태는 App.tsx 에서 제어한다.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Preset } from '../../types'
 import styles from './PresetPanel.module.css'
 
@@ -10,6 +11,12 @@ interface PresetPanelProps {
   onSave: (name: string) => void
   onLoad: (id: string) => void
   onDelete: (id: string) => void
+  /** Preset 목록 드로어 열림 여부 (App.tsx 제어). */
+  drawerOpen: boolean
+  onDrawerClose: () => void
+  /** 이름 입력 모드 활성 여부 (App.tsx 제어). */
+  naming: boolean
+  onNamingCancel: () => void
 }
 
 export function PresetPanel({
@@ -17,44 +24,29 @@ export function PresetPanel({
   onSave,
   onLoad,
   onDelete,
+  drawerOpen,
+  onDrawerClose,
+  naming,
+  onNamingCancel,
 }: PresetPanelProps) {
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [naming, setNaming] = useState(false)
   const [draftName, setDraftName] = useState('')
 
-  const beginSave = () => {
-    setNaming(true)
-    setDraftName(`Preset ${presets.length + 1}`)
-  }
+  // naming 활성화될 때 draft 이름 초기화.
+  useEffect(() => {
+    if (naming) {
+      setDraftName(`Preset ${presets.length + 1}`)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [naming])
 
   const confirmSave = () => {
     onSave(draftName.trim() || `Preset ${presets.length + 1}`)
-    setNaming(false)
     setDraftName('')
+    onNamingCancel()
   }
 
   return (
     <section className={styles.presetPanel} aria-label="Presets">
-      <div className={styles.row}>
-        <button
-          type="button"
-          className={styles.actionBtn}
-          onClick={beginSave}
-          aria-label="Save current settings as preset"
-        >
-          SAVE
-        </button>
-        <button
-          type="button"
-          className={styles.actionBtn}
-          onClick={() => setDrawerOpen((v) => !v)}
-          aria-expanded={drawerOpen}
-          aria-label="Toggle preset list"
-        >
-          LOAD ({presets.length})
-        </button>
-      </div>
-
       {naming && (
         <div className={styles.namingRow}>
           <input
@@ -65,6 +57,10 @@ export function PresetPanel({
             placeholder="Preset name"
             maxLength={32}
             autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') confirmSave()
+              if (e.key === 'Escape') onNamingCancel()
+            }}
           />
           <button
             type="button"
@@ -76,7 +72,7 @@ export function PresetPanel({
           <button
             type="button"
             className={styles.actionBtn}
-            onClick={() => setNaming(false)}
+            onClick={onNamingCancel}
           >
             ✕
           </button>
@@ -98,7 +94,7 @@ export function PresetPanel({
                     className={styles.slotLoad}
                     onClick={() => {
                       onLoad(p.id)
-                      setDrawerOpen(false)
+                      onDrawerClose()
                     }}
                   >
                     <span className={styles.slotName}>{p.name}</span>

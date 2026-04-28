@@ -12,14 +12,14 @@
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--gray-700);
   background: var(--gray-900);
   position: sticky;
   top: 0;
   z-index: 2;
+  flex-wrap: nowrap;
 }
 
 .headerTitle {
@@ -33,14 +33,35 @@
   font-family: var(--font-mono);
   font-size: var(--size-xs);
   color: var(--green-dim);
-  margin-right: auto;
-  margin-left: 8px;
+  /* 남은 공간 차지 → SAVE/LOAD/SETTINGS를 오른쪽으로 밀어냄 */
+  flex: 1;
+  margin-left: 4px;
 }
 
+/* SAVE / LOAD 헤더 버튼 */
+.headerBtn {
+  min-height: 36px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--gray-300);
+  border: 1px solid var(--gray-700);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.headerBtn:active {
+  color: var(--green);
+  border-color: var(--green-dim);
+  background: var(--green-glow);
+}
+
+/* SETTINGS 버튼 */
 .settingsBtn {
-  min-height: var(--touch-target);
-  min-width: var(--touch-target);
-  padding: 0 12px;
+  min-height: 36px;
+  padding: 0 8px;
   background: transparent;
   color: var(--green);
   border: 1px solid var(--green-dim);
@@ -49,10 +70,11 @@
   font-size: var(--size-xs);
   letter-spacing: 0.1em;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .settingsBtn:active {
-  background: rgba(0, 255, 65, 0.1);
+  background: var(--green-glow);
 }
 
 .pairList {
@@ -85,23 +107,18 @@
     font-size 0.12s, font-weight 0.12s;
 }
 
-/* F XOR SS → 글씨 초록 + 약한 강조. */
-.pairOne {
-  color: var(--green);
-  font-weight: 600;
-  text-shadow: 0 0 4px var(--green-glow);
+/* 조리개 AND 셔터 모두 매칭 → 행 전체 테두리 강조. */
+.pairBothRow {
+  border-color: var(--green);
+  background: var(--green-glow);
+  box-shadow: 0 0 8px var(--green-glow);
 }
 
-/* F AND SS → 우선순위 최상단. 가시성 강화: 굵은 테두리 + 큰 글씨 + 진한 배경 + 강한 glow. */
-.pairBoth {
+/* 개별 span 하이라이트 — matchF 또는 matchSS 에 적용. */
+.matchHighlight {
   color: var(--green);
   font-weight: 700;
-  font-size: var(--size-xl);
-  border-width: 3px;
-  border-color: var(--green);
-  background: rgba(0, 255, 65, 0.12);
-  box-shadow: 0 0 12px var(--green-glow);
-  letter-spacing: 0.06em;
+  text-shadow: 0 0 4px var(--green-glow);
 }
 
 .pairAperture,
@@ -242,6 +259,62 @@
   color: var(--gray-500);
 }
 
+.modalGroupTitle {
+  font-family: var(--font-mono);
+  font-size: var(--size-sm);
+  color: var(--green-dim);
+  letter-spacing: 0.08em;
+}
+
+/* Theme 라디오 그룹 */
+.themeRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.themeOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-height: var(--touch-target);
+  cursor: pointer;
+}
+
+.themeOption input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green);
+  flex-shrink: 0;
+}
+
+.themeLabel {
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  color: var(--green-dim);
+  letter-spacing: 0.08em;
+}
+
+/* GitHub 링크 */
+.githubLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  color: var(--gray-300);
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  border-top: 1px solid var(--gray-700);
+}
+
+.githubLink:hover,
+.githubLink:active {
+  color: var(--green);
+}
+
 .modalFooter {
   display: flex;
   gap: 8px;
@@ -265,5 +338,5 @@
 .modalBtnPrimary {
   color: var(--green);
   border-color: var(--green);
-  background: rgba(0, 255, 65, 0.1);
+  background: var(--green-glow);
 }

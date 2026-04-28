@@ -30,7 +30,7 @@
 .actionBtn:active {
   color: var(--green);
   border-color: var(--green);
-  background: rgba(0, 255, 65, 0.08);
+  background: var(--green-glow);
 }
 
 .actionBtnPrimary {
@@ -95,7 +95,7 @@
 }
 
 .slotLoad:active {
-  background: rgba(0, 255, 65, 0.08);
+  background: var(--green-glow);
 }
 
 .slotName {
