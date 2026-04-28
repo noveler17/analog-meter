@@ -13,12 +13,13 @@
   padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* 좌측 패널 — 세로 레이아웃에서는 카메라 전체 너비. */
+/* 좌측 패널 — 세로 레이아웃에서는 카메라 전체 너비. 380px = 컨트롤 영역 최소 높이. */
 .leftPanel {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   width: 100%;
+  max-height: calc(100dvh - 380px);
 }
 
 /* 우측 패널 — 세로 레이아웃에서는 flex: 1 (남은 공간). */
@@ -30,11 +31,11 @@
   overflow: hidden;
 }
 
-/* Fixed Top — 카메라 only.
- *  높이는 카메라 비디오의 가로세로 비율을 따라간다 (CameraPreview 가 inline aspect-ratio 주입). */
+/* Fixed Top — 카메라 only. leftPanel의 max-height 안에서 남은 공간을 채운다. */
 .topSection {
   position: relative;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-height: 140px;
   width: 100%;
   background: var(--bg);
   overflow: hidden;
@@ -98,6 +99,7 @@
   .leftPanel {
     width: 50%;
     height: 100dvh;
+    max-height: none;
     border-right: 1px solid var(--gray-700);
     overflow: hidden;
     padding-top: env(safe-area-inset-top, 0px);
@@ -106,7 +108,8 @@
   .topSection {
     /* 와이드 모드에서는 카메라가 좌측 높이를 채운다. */
     flex: 1 1 auto;
-    height: 0; /* flex 비율로 높이 결정 */
+    height: 0;
+    min-height: 0;
   }
 
   .zoneSection {
@@ -121,13 +124,51 @@
   }
 
   .centerSection {
-    /* 와이드 모드에서 더 많은 combinations 표시 가능. */
-    min-height: 180px;
+    min-height: 0;
     overflow-y: auto;
   }
 
   .bottomSection {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
     padding-right: calc(env(safe-area-inset-right, 0px) + 8px);
+  }
+}
+
+/* 소형 landscape 폰 (iPhone SE 등, min-width: 600px 미달 기기) */
+@media (orientation: landscape) and (max-width: 599px) {
+  .app {
+    flex-direction: row;
+    padding-top: 0;
+  }
+
+  .leftPanel {
+    width: 55%;
+    height: 100dvh;
+    max-height: none;
+    border-right: 1px solid var(--gray-700);
+    overflow: hidden;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .topSection {
+    flex: 1 1 auto;
+    height: 0;
+    min-height: 0;
+  }
+
+  .rightPanel {
+    width: 45%;
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .centerSection {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .bottomSection {
+    padding: 4px 8px calc(env(safe-area-inset-bottom, 0px) + 4px);
+    gap: 4px;
   }
 }

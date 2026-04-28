@@ -160,10 +160,12 @@ function AppShell() {
                 prioritySS: cur.prioritySS,
                 measuredAt: Date.now(),
               }
+              const display = previewRef.current?.sourceToContainer(msg.spot.x, msg.spot.y)
+                ?? { x: msg.spot.x, y: msg.spot.y }
               cur.setSpot({
                 id: `spot-${msg.timestamp}`,
-                x: msg.spot.x,
-                y: msg.spot.y,
+                x: display.x,
+                y: display.y,
                 ev: adjEV,
                 evRaw: spotEvRaw,
               })
