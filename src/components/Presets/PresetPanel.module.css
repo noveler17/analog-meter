@@ -1,0 +1,136 @@
+/* AnalogMeter — Preset panel styles. */
+
+.presetPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+}
+
+.actionBtn {
+  flex: 1;
+  min-height: var(--touch-target);
+  padding: 0 12px;
+  background: transparent;
+  color: var(--green-dim);
+  border: 1px solid var(--gray-700);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--size-sm);
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+
+.actionBtn:active {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(0, 255, 65, 0.08);
+}
+
+.actionBtnPrimary {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.namingRow {
+  display: flex;
+  gap: 6px;
+}
+
+.nameInput {
+  flex: 1;
+  min-height: var(--touch-target);
+  padding: 0 8px;
+  background: var(--gray-900);
+  border: 1px solid var(--gray-700);
+  border-radius: 4px;
+  color: var(--green);
+  font-family: var(--font-mono);
+  font-size: var(--size-md);
+}
+
+.slotList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 30vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--gray-700);
+  border-radius: 4px;
+  padding: 4px;
+  background: var(--gray-900);
+}
+
+.slot {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.slotLoad {
+  flex: 1;
+  min-height: var(--touch-target);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--green);
+  border: 1px solid var(--gray-700);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+}
+
+.slotLoad:active {
+  background: rgba(0, 255, 65, 0.08);
+}
+
+.slotName {
+  font-size: var(--size-sm);
+  font-weight: 600;
+  color: var(--green);
+  letter-spacing: 0.04em;
+}
+
+.slotMeta {
+  font-size: var(--size-xs);
+  color: var(--gray-300);
+  margin-top: 2px;
+}
+
+.slotDelete {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  background: transparent;
+  color: var(--gray-500);
+  border: 1px solid var(--gray-700);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--size-md);
+}
+
+.slotDelete:active {
+  color: var(--red-warn);
+  border-color: var(--red-warn);
+}
+
+.slotEmpty {
+  padding: 12px;
+  color: var(--gray-500);
+  font-family: var(--font-mono);
+  font-size: var(--size-sm);
+  text-align: center;
+}

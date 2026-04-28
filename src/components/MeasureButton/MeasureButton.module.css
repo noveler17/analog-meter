@@ -1,0 +1,63 @@
+/* AnalogMeter — Measure button styles. */
+
+.measureBtn {
+  width: 100%;
+  /* 대형 버튼: TOUCH_TARGET(44) 이상의 60px. */
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--gray-900);
+  color: var(--green);
+  border: 2px solid var(--green);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--size-lg);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  transition: background 0.12s, box-shadow 0.12s, transform 0.08s;
+  box-shadow: 0 0 12px var(--green-glow);
+}
+
+.measureBtn:active {
+  background: rgba(0, 255, 65, 0.12);
+  transform: scale(0.98);
+}
+
+.measureBtn:disabled {
+  opacity: 0.4;
+  border-color: var(--gray-500);
+  color: var(--gray-500);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.label {
+  text-shadow: 0 0 6px var(--green-glow);
+}
+
+.timestamp {
+  font-size: var(--size-xs);
+  color: var(--gray-300);
+  letter-spacing: 0.04em;
+  font-weight: 400;
+}
+
+.pulse {
+  animation: measurePulse 0.28s ease-out;
+}
+
+@keyframes measurePulse {
+  0% {
+    box-shadow: 0 0 12px var(--green-glow);
+  }
+  50% {
+    box-shadow: 0 0 28px var(--green), 0 0 0 2px var(--green-glow);
+  }
+  100% {
+    box-shadow: 0 0 12px var(--green-glow);
+  }
+}

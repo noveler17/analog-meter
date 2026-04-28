@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "harness": {
+      "source": "revfactory/harness",
+      "sourceType": "github",
+      "computedHash": "2c5d283470aa9088bd4c1101a31716af3daed89dbc9ee63142323ef29f77c948"
+    }
+  }
+}

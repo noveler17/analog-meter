@@ -1,0 +1,81 @@
+/* AnalogMeter — Global Styles
+ * 디자인 토큰(src/tokens.ts)에 정의된 값과 1:1 일치한다.
+ *   --bg            BG_BLACK
+ *   --green         CLOVER_GREEN
+ *   --touch-target  TOUCH_TARGET_MIN
+ *
+ * 컴포넌트 CSS 는 절대 hex 값을 직접 쓰지 않고 var(--…) 로만 참조한다.
+ */
+
+:root {
+  /* Colors — src/tokens.ts COLORS */
+  --bg: #000000;            /* BG_BLACK */
+  --green: #00FF41;         /* CLOVER_GREEN */
+  --green-dim: #00CC33;
+  --green-glow: #00FF4133;
+  --white: #FFFFFF;
+  --gray-900: #111111;
+  --gray-800: #1A1A1A;
+  --gray-700: #2A2A2A;
+  --gray-500: #555555;
+  --gray-300: #888888;
+  --red-warn: #FF3B30;
+
+  /* Typography — src/tokens.ts TYPOGRAPHY */
+  --font-mono: 'SF Mono', 'Courier New', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --size-xs: 10px;
+  --size-sm: 12px;
+  --size-md: 14px;
+  --size-lg: 18px;
+  --size-xl: 24px;
+  --size-2xl: 32px;
+
+  /* Spacing — src/tokens.ts TOUCH_TARGET_MIN */
+  --touch-target: 44px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  /* 더블탭 줌/팬 방지: 다이얼/버튼 조작 시 의도치 않은 제스처를 차단 */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg);
+  color: var(--green);
+  font-family: var(--font-mono);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  /* iOS safe area */
+  min-height: 100dvh;
+}
+
+/* 모든 인터랙티브 요소 최소 터치 타겟 보장 — 단, dialItem 처럼 width 만 있는
+ * 컴포넌트는 자체 클래스가 width 를 명시한다. */
+button,
+[role='button'] {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

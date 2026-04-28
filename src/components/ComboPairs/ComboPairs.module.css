@@ -1,0 +1,263 @@
+/* AnalogMeter — ComboPairs styles. */
+
+.comboSection {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  position: relative;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gray-700);
+  background: var(--gray-900);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.headerTitle {
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  letter-spacing: 0.12em;
+  color: var(--gray-300);
+}
+
+.headerCount {
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  color: var(--green-dim);
+  margin-right: auto;
+  margin-left: 8px;
+}
+
+.settingsBtn {
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+  padding: 0 12px;
+  background: transparent;
+  color: var(--green);
+  border: 1px solid var(--green-dim);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.settingsBtn:active {
+  background: rgba(0, 255, 65, 0.1);
+}
+
+.pairList {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pairRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  /* TOUCH_TARGET 보장. */
+  min-height: var(--touch-target);
+  padding: 0 16px;
+  margin: 0 8px;
+  font-family: var(--font-mono);
+  font-size: var(--size-md);
+  color: var(--gray-300);
+  border: 2px solid transparent;
+  border-radius: 6px;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+
+/* PRD 2.2: F XOR SS → 글씨 초록 */
+.pairOne {
+  color: var(--green);
+  text-shadow: 0 0 4px var(--green-glow);
+}
+
+/* PRD 2.2: F AND SS → 테두리 초록 */
+.pairBoth {
+  color: var(--white);
+  border-color: var(--green);
+  background: rgba(0, 255, 65, 0.06);
+  box-shadow: 0 0 6px var(--green-glow);
+}
+
+.pairAperture,
+.pairShutter {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.pairDot {
+  color: var(--gray-500);
+}
+
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  color: var(--gray-500);
+  font-size: var(--size-lg);
+}
+
+/* --- Modal --- */
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+  backdrop-filter: blur(4px);
+}
+
+.modalCard {
+  background: var(--gray-900);
+  border: 1px solid var(--green-dim);
+  border-radius: 8px;
+  padding: 16px;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 0 24px var(--green-glow);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modalTitle {
+  font-family: var(--font-mono);
+  font-size: var(--size-md);
+  color: var(--green);
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.modalClose {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  color: var(--gray-300);
+  font-family: var(--font-mono);
+  font-size: var(--size-lg);
+  background: transparent;
+  border: none;
+}
+
+.modalGroup {
+  border: 1px solid var(--gray-700);
+  border-radius: 6px;
+  padding: 8px 12px 12px;
+  margin: 0;
+}
+
+.modalLegend {
+  padding: 0 6px;
+}
+
+.toggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--size-sm);
+  color: var(--green-dim);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  /* checkbox 자체는 작지만 라벨 영역 전체가 hit 영역. */
+  min-height: var(--touch-target);
+}
+
+.toggleLabel input {
+  /* iOS 의 default 스타일. */
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green);
+}
+
+.rangeRow {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.selectLabel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.selectCaption {
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  color: var(--gray-300);
+  letter-spacing: 0.08em;
+}
+
+.selectInput {
+  min-height: var(--touch-target);
+  padding: 0 8px;
+  background: var(--gray-800);
+  color: var(--green);
+  border: 1px solid var(--gray-700);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--size-md);
+}
+
+.selectInput:disabled {
+  opacity: 0.4;
+  color: var(--gray-500);
+}
+
+.modalFooter {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.modalBtn {
+  min-height: var(--touch-target);
+  min-width: 88px;
+  padding: 0 16px;
+  background: transparent;
+  color: var(--gray-300);
+  border: 1px solid var(--gray-700);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--size-sm);
+  letter-spacing: 0.08em;
+}
+
+.modalBtnPrimary {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(0, 255, 65, 0.1);
+}

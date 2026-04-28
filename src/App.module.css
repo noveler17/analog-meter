@@ -1,0 +1,85 @@
+/* AnalogMeter — App layout: Fixed Top / Variable Center / Fixed Bottom. */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  background: var(--bg);
+  color: var(--green);
+  overflow: hidden;
+  /* 더블탭 줌 방지 (전역에 적용되어 있지만 명시 — 컨테이너 단위 보강). */
+  touch-action: manipulation;
+  /* iOS safe-area 대응. */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Fixed Top — 카메라 + Zone System.
+ *  세로형 폰: 화면 높이의 약 45% 차지. 작은 폰에서도 컨트롤 영역이 좁아지지 않도록 캡. */
+.topSection {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  height: 45vh;
+  height: 45dvh;
+  min-height: 280px;
+  max-height: 520px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* Variable Center — 스크롤 가능 조합 목록. */
+.centerSection {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-top: 1px solid var(--gray-700);
+  border-bottom: 1px solid var(--gray-700);
+}
+
+/* Fixed Bottom — 컨트롤 (다이얼 + Measure + Preset). */
+.bottomSection {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 8px);
+  background: var(--bg);
+}
+
+.dialStack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--gray-900);
+  border: 1px solid var(--gray-700);
+  border-radius: 8px;
+  padding: 4px 0;
+}
+
+.dialDivider {
+  height: 1px;
+  background: var(--gray-700);
+  margin: 0 12px;
+}
+
+/* 작은 폰 (~ iPhone SE 5.4") 대응. */
+@media (max-height: 700px) {
+  .topSection {
+    height: 38vh;
+    height: 38dvh;
+    min-height: 220px;
+  }
+}
+
+/* 큰 폰 (Pro Max, Ultra) 대응. */
+@media (min-height: 900px) {
+  .topSection {
+    height: 50vh;
+    height: 50dvh;
+  }
+}

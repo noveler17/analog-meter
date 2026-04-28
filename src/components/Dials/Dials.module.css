@@ -1,0 +1,85 @@
+/* AnalogMeter — Dial styles. 색상/터치타겟은 src/tokens.ts 참조. */
+
+.dialWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* TOUCH_TARGET (44) + caption + carat 을 위한 여유. */
+  padding: 4px 0 6px;
+}
+
+.dialCaption {
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  color: var(--gray-300);
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin-bottom: 2px;
+  pointer-events: none;
+}
+
+.dialScroll {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  /* TOUCH_TARGET_MIN. */
+  min-height: var(--touch-target);
+  outline: none;
+  position: relative;
+}
+
+.dialScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.dialItem {
+  scroll-snap-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* TOUCH_TARGET 보장. */
+  min-height: var(--touch-target);
+  background: transparent;
+  border: none;
+  color: var(--gray-300);
+  font-family: var(--font-mono);
+  font-size: var(--size-md);
+  line-height: 1;
+  padding: 0 4px;
+  flex-shrink: 0;
+  transition: color 0.12s, transform 0.12s, text-shadow 0.12s;
+  cursor: pointer;
+}
+
+.dialItemActive {
+  color: var(--green);
+  font-size: var(--size-lg);
+  font-weight: 600;
+  text-shadow: 0 0 8px var(--green-glow);
+  transform: scale(1.05);
+}
+
+/* 중앙 캐럿 — 사용자에게 현재 선택 위치를 알린다. */
+.dialCarat {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--green-glow) 30%,
+    var(--green) 50%,
+    var(--green-glow) 70%,
+    transparent 100%
+  );
+  pointer-events: none;
+  opacity: 0.6;
+}
